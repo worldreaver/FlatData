@@ -1,0 +1,25 @@
+// This class is auto generated
+
+#if UNITY_EDITOR
+using FlatBuffers;
+using UnityEditor;
+using UnityEngine;
+
+namespace __namespace__
+{
+    public static class GameDatabaseCreate
+    {
+        public static void Run(string path, string name)
+        {
+            var builder = new FlatBufferBuilder(1);
+
+__data_replace__
+
+            FlatHelper.Save(builder, path + $"/{name}.wr");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("<color=#25854B>Generate binary file complete!</color>");
+        }
+    }
+}
+#endif
