@@ -9,17 +9,32 @@ namespace __namespace__
 {
     public static class GameDatabaseCreate
     {
-        public static void Run(string path, string name)
+        private static FlatBufferBuilder CreateBuilder()
         {
             var builder = new FlatBufferBuilder(1);
+            
+            __data_replace__
+            
+            return builder;
+        }
+    
+        public static void Run(string path, string name)
+        {
 
-__data_replace__
-
-            FlatHelper.Save(builder, path + $"/{name}.wr");
+            FlatHelper.Save(CreateBuilder(), path + $"/{name}.wr");
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("<color=#25854B>Generate binary file complete!</color>");
         }
+
+        public static void Run2(string path, string name)
+        {
+            FlatHelper.SaveAsScriptable(CreateBuilder(), path + $"/{name}.asset");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("<color=#25854B>Generate binary storage file complete!</color>");
+        }        
+        
     }
 }
 #endif
