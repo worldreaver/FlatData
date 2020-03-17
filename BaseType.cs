@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-namespace FlatBuffers
+﻿namespace FlatBuffers
 {
     /// <summary>
     /// Represents the base type of a serialized object
@@ -92,4 +91,3 @@ namespace FlatBuffers
         Union,
     }
 }
-#endif

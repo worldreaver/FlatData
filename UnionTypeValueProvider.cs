@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 using System.Linq;
 
@@ -30,4 +29,3 @@ namespace FlatBuffers
         public Type ValueType { get; private set; }
     }
 }
-#endif

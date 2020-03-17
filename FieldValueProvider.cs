@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 using System.Reflection;
 
 namespace FlatBuffers
@@ -26,4 +25,3 @@ namespace FlatBuffers
         public Type ValueType => _field.FieldType;
     }
 }
-#endif

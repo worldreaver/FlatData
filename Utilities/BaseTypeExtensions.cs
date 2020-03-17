@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 
 namespace FlatBuffers.Utilities
 {
@@ -111,4 +110,3 @@ namespace FlatBuffers.Utilities
         }
     }
 }
-#endif

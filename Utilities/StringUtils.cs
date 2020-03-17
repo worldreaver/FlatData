@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-namespace FlatBuffers.Utilities
+﻿namespace FlatBuffers.Utilities
 {
     /// <summary>
     /// A collection of utilities for strings
@@ -25,4 +24,3 @@ namespace FlatBuffers.Utilities
         }
     }
 }
-#endif

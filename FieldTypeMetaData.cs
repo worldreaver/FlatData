@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 namespace FlatBuffers
 {
     /// <summary>
@@ -37,4 +36,3 @@ namespace FlatBuffers
         public const string NESTED_FLAT_BUFFER = "nested_flatbuffer";
     }
 }
-#endif
