@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/worldreaver/FlatData/compare/1.0.2...1.0.3) (2020-03-17)
+
+
+### Bug Fixes
+
+* remove UNITY_EDITOR ([7147499](https://github.com/worldreaver/FlatData/commit/71474996376508b6f31b8d53b148b714053839cb))
+
 ## [1.0.2](https://github.com/worldreaver/FlatData/compare/1.0.1...1.0.2) (2020-03-17)
 
 
