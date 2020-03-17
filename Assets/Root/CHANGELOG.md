@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/worldreaver/FlatData/compare/1.0.3...1.1.0) (2020-03-17)
+
+
+### Features
+
+* add generate asset ([e2b5736](https://github.com/worldreaver/FlatData/commit/e2b57363db7cfa5be336292d6324a52721101ea6))
+
 ## [1.0.3](https://github.com/worldreaver/FlatData/compare/1.0.2...1.0.3) (2020-03-17)
 
 
