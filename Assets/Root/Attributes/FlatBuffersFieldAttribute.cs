@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 using FlatBuffers.Utilities;
 
 namespace FlatBuffers.Attributes
@@ -38,7 +37,9 @@ namespace FlatBuffers.Attributes
         public int Id
         {
             get => _id;
-            set { _hasIdSet = true;
+            set
+            {
+                _hasIdSet = true;
                 _id = value;
             }
         }
@@ -72,6 +73,7 @@ namespace FlatBuffers.Attributes
                 {
                     throw new ArgumentException();
                 }
+
                 _unionType = value;
             }
         }
@@ -92,5 +94,3 @@ namespace FlatBuffers.Attributes
         public bool HasNestedFlatBufferType => NestedFlatBufferType != null;
     }
 }
-#endif
-

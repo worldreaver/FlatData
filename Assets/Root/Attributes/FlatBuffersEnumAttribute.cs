@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 
 namespace FlatBuffers.Attributes
@@ -21,4 +20,3 @@ namespace FlatBuffers.Attributes
         public bool BitFlags { get; set; }
     }
 }
-#endif
