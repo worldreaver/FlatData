@@ -432,6 +432,7 @@ namespace FlatBuffers
                     GUI.color = Colors.White;
                     GUI.backgroundColor = Colors.LawnGreen;
                     if (GUILayout.Button("Generate binary")) GenerateBinary();
+                    if (GUILayout.Button("Generate binary storage")) GenerateBinaryStorage();
                     GUI.backgroundColor = Colors.White;
                 }
                 else
@@ -480,6 +481,23 @@ namespace FlatBuffers
                     }
 
                     _creatorType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
+                    GUI.FocusControl(null);
+                }
+                
+                void GenerateBinaryStorage()
+                {
+                    var pathG = _pathGenerateBinary;
+                    if (!EditorHelper.IsValidPath(pathG))
+                    {
+                        pathG = pathG.Insert(0, Application.dataPath);
+                    }
+
+                    if (!Directory.Exists(pathG))
+                    {
+                        Directory.CreateDirectory(pathG);
+                    }
+
+                    _creatorType.GetMethod("Run2", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
                     GUI.FocusControl(null);
                 }
             }

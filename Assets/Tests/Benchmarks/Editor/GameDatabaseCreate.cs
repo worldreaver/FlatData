@@ -9,11 +9,11 @@ namespace FlatBufferGenerated.BrenchmarkFlatBuffer
 {
     public static class GameDatabaseCreate
     {
-        public static void Run(string path, string name)
+        private static FlatBufferBuilder CreateBuilder()
         {
             var builder = new FlatBufferBuilder(1);
-
-var itema_sortedvector =  ItemA.CreateSortedVectorOfItemA(builder, new[] {ItemA.CreateItemA(builder, builder.CreateString("Id_1"),builder.CreateString("Name Item 1"),100),
+            
+            var itema_sortedvector =  ItemA.CreateSortedVectorOfItemA(builder, new[] {ItemA.CreateItemA(builder, builder.CreateString("Id_1"),builder.CreateString("Name Item 1"),100),
 ItemA.CreateItemA(builder, builder.CreateString("Id_2"),builder.CreateString("Name Item 2"),100),
 ItemA.CreateItemA(builder, builder.CreateString("Id_3"),builder.CreateString("Name Item 3"),100),
 ItemA.CreateItemA(builder, builder.CreateString("Id_4"),builder.CreateString("Name Item 4"),100),
@@ -124,12 +124,27 @@ ItemB.CreateItemB(builder, 9,builder.CreateString("Level 9"),ItemB.CreateMission
 ItemB.CreateItemB(builder, 10,builder.CreateString("Level 10"),ItemB.CreateMissionNamesVector(builder, new []{builder.CreateString("Coin"),builder.CreateString("Customer"),builder.CreateString("Trash")}),ItemB.CreateMissionValuesVector(builder, new []{605,15,1}))});
 var root = BrenchmarkMasterTable.CreateBrenchmarkMasterTable(builder, itema_sortedvector,itemb_sortedvector);
 builder.Finish(root.Value);
+            
+            return builder;
+        }
+    
+        public static void Run(string path, string name)
+        {
 
-            FlatHelper.Save(builder, path + $"/{name}.wr");
+            FlatHelper.Save(CreateBuilder(), path + $"/{name}.wr");
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("<color=#25854B>Generate binary file complete!</color>");
         }
+
+        public static void Run2(string path, string name)
+        {
+            FlatHelper.SaveAsScriptable(CreateBuilder(), path + $"/{name}.asset");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("<color=#25854B>Generate binary file complete!</color>");
+        }        
+        
     }
 }
 #endif
