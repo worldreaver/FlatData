@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System.Reflection;
 
 namespace FlatBuffers
@@ -29,4 +28,3 @@ namespace FlatBuffers
         }
     }
 }
-#endif

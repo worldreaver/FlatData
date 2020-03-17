@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System.Collections.Generic;
 
 namespace FlatBuffers
@@ -44,4 +43,3 @@ namespace FlatBuffers
         }
     }
 }
-#endif

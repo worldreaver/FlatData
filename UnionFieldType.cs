@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 namespace FlatBuffers
 {
     internal struct UnionFieldType
@@ -6,4 +5,3 @@ namespace FlatBuffers
         public byte Value { get; set; }
     }
 }
-#endif
