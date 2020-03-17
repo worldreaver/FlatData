@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 
 namespace FlatBuffers
@@ -55,4 +54,3 @@ namespace FlatBuffers
         public bool IsUserMetaData { get; internal set; }
     }
 }
-#endif

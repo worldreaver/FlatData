@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 using FlatBuffers.Utilities;
 
 namespace FlatBuffers
@@ -158,4 +157,3 @@ namespace FlatBuffers
         }
     }
 }
-#endif

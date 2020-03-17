@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 namespace FlatBuffers
 {
     /// <summary>
@@ -12,4 +11,3 @@ namespace FlatBuffers
         public const string BIT_FLAGS = "bit_flags";
     }
 }
-#endif

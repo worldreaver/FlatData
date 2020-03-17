@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 
 namespace FlatBuffers
 {
@@ -28,4 +27,3 @@ namespace FlatBuffers
         bool IsDefaultValueSetExplicity { get; }
     }
 }
-#endif

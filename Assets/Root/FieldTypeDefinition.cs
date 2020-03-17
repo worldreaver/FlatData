@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using FlatBuffers.Attributes;
+﻿using FlatBuffers.Attributes;
 
 namespace FlatBuffers
 {
@@ -209,4 +208,3 @@ namespace FlatBuffers
         public bool HasNestedFlatBufferType => _nestedFlatBufferType != null;
     }
 }
-#endif
