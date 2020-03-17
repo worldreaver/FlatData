@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 namespace FlatBuffers
 {
     /// <summary>
@@ -22,4 +21,3 @@ namespace FlatBuffers
         }
     }
 }
-#endif

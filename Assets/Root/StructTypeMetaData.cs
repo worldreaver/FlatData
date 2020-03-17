@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 namespace FlatBuffers
 {
     /// <summary>
@@ -17,4 +16,3 @@ namespace FlatBuffers
         public const string ORIGINAL_ORDER = "original_order";
     }
 }
-#endif
