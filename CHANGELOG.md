@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/worldreaver/FlatData/compare/1.0.0...1.0.1) (2020-03-17)
+
+
+### Bug Fixes
+
+* remove attribute only editor ([f054963](https://github.com/worldreaver/FlatData/commit/f054963288effb44ce15d99831e6fc54da038cb0))
+
 # 1.0.0 (2020-03-16)
 
 
