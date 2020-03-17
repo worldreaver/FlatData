@@ -1,5 +1,4 @@
-﻿#if UNITY_EDITOR
-using System;
+﻿using System;
 
 namespace FlatBuffers.Attributes
 {
@@ -140,4 +139,3 @@ namespace FlatBuffers.Attributes
         public object Value { get; private set; }
     }
 }
-#endif

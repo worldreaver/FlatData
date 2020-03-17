@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 
 namespace FlatBuffers.Attributes
@@ -30,4 +29,3 @@ namespace FlatBuffers.Attributes
         public bool IsForceAlignSet { get; private set; }
     }
 }
-#endif
