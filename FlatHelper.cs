@@ -7,7 +7,7 @@ namespace FlatBuffers
     public static class FlatHelper
     {
         /// <summary>
-        /// 
+        ///  
         /// </summary>
         /// <param name="builder"></param>
         /// <param name="path"></param>
@@ -17,6 +17,7 @@ namespace FlatBuffers
             File.WriteAllBytes(path, builder.SizedByteArray());
         }
 
+#if UNITY_EDITOR
         /// <summary>
         /// 
         /// </summary>
@@ -46,6 +47,8 @@ namespace FlatBuffers
                 AssetDatabase.Refresh();
             }
         }
+#endif
+
 
         /// <summary>
         /// 
