@@ -887,7 +887,7 @@ namespace FlatBuffers
         private bool _isFetchSaveNamespace;
         private int _indexOption;
         private readonly string _pathSchema = $"{Application.dataPath}/../Schemas";
-        private readonly string[] _options = {"--gen-mutable"};
+        private readonly string[] _options = {"--gen-mutable", "--gen-object-api"};
 
         public SchemaWindowA(EditorWindow window) : base("From namespace", window)
         {
@@ -1086,7 +1086,7 @@ namespace FlatBuffers
     {
         private string _pathGenerate = "";
         private string _pathSchemaFile = "";
-        private readonly string[] _options = {"--gen-mutable"};
+        private readonly string[] _options = {"--gen-mutable", "--gen-object-api"};
         private bool _isFetchPath;
         private int _indexOption;
 
