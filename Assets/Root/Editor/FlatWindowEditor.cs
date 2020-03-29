@@ -1036,7 +1036,6 @@ namespace FlatBuffers
                     p.Exited += (sender,
                         e) =>
                     {
-                        Directory.Delete(_pathSchema, true);
                         UnityEngine.Debug.Log("Flatc generator : Complete!");
                         p?.Dispose();
                         p = null;
