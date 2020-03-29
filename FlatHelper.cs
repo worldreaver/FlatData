@@ -57,7 +57,7 @@ namespace FlatBuffers
         /// <returns></returns>
         public static ByteBuffer Load(string path)
         {
-            return !Directory.Exists(path) ? null : new ByteBuffer(File.ReadAllBytes(path));
+            return !File.Exists(path) ? null : new ByteBuffer(File.ReadAllBytes(path));
         }
     }
 }
