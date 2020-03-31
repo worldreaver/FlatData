@@ -173,8 +173,7 @@ namespace FlatBuffers
             windows = new SubWindow[]
             {
                 new SchemaWindow(this),
-                new SpreadsheetWindow(this),
-                new EditorSchema(this),
+                new SpreadsheetWindow(this)
             };
         }
 
