@@ -54,8 +54,8 @@ namespace FlatBuffers
         public static void ShowWindow()
         {
             var window = GetWindow(typeof(FlatWindowEditor));
-            window.titleContent = new GUIContent("GodMod", EditorHelper.GetIcon("Flat.png"));
-            window.minSize = new Vector2(500, 450);
+            window.titleContent = new GUIContent("Worldreaver", EditorHelper.GetIcon("Flat.png"));
+            window.minSize = new Vector2(800, 450);
         }
 
         private void OnGUI()
@@ -127,7 +127,14 @@ namespace FlatBuffers
                         PlayerPrefs.DeleteAll();
                     }
                 });
-                menu.AddItem(new GUIContent("Open Scripts Creator"), false, CreatorWindow.ShowWindow);
+                menu.AddItem(new GUIContent("Delete FlatData EditorPrefs"), false, () =>
+                {
+                    if (EditorUtility.DisplayDialog("Delete EditorPrefs", "Are you sure you wish to clear EditorPrefs of FlatData?\nThis action cannot be reversed.", "Clear", "Cancel"))
+                    {
+                        EditorPrefs.DeleteKey(CURRENT_NAME_WINDOW);
+                        EditorPrefs.DeleteKey("_indexMenuSchema");
+                    }
+                });
                 menu.ShowAsContext();
             }
 
@@ -173,6 +180,7 @@ namespace FlatBuffers
             windows = new SubWindow[]
             {
                 new SchemaWindow(this),
+                /*new EditorSchema(this),*/
                 new SpreadsheetWindow(this)
             };
         }
@@ -482,7 +490,7 @@ namespace FlatBuffers
                     _creatorType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
                     GUI.FocusControl(null);
                 }
-                
+
                 void GenerateBinaryStorage()
                 {
                     var pathG = _pathGenerateBinary;
@@ -775,7 +783,7 @@ namespace FlatBuffers
     {
         private SubWindow[] _subs;
         private SubWindow _sub;
-        private readonly string[] _menuName = {"Form namespace", "From fbs file"};
+        private readonly string[] _menuName = {"From fbs file"};
         private int _indexMenuSchema;
         private bool _isFetchIndex;
 
@@ -862,7 +870,6 @@ namespace FlatBuffers
         {
             _subs = new SubWindow[]
             {
-                new SchemaWindowA(parent),
                 new SchemaWindowB(parent)
             };
         }
@@ -870,213 +877,6 @@ namespace FlatBuffers
         private void SetCurrentWindow(SubWindow window)
         {
             _sub = window;
-        }
-    }
-
-    internal class SchemaWindowA : SubWindow
-    {
-        private readonly List<Type> _types = new List<Type>();
-        private bool _isFoldout;
-        private string _namespaceSchema = "";
-        private bool _isFindSuccess;
-        private bool _isFoldoutType = true;
-        private Vector2 _scrollPosition;
-        private string _pathGenerate = "";
-        private bool _isFetchPath;
-        private bool _isFetchSaveNamespace;
-        private int _indexOption;
-        private readonly string _pathSchema = $"{Application.dataPath}/../Schemas";
-        private readonly string[] _options = {"--gen-mutable", "--gen-object-api"};
-
-        public SchemaWindowA(EditorWindow window) : base("From namespace", window)
-        {
-        }
-
-        public SchemaWindowA(string name,
-            EditorWindow parent) : base(name, parent)
-        {
-        }
-
-        public override void OnGUI()
-        {
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, GUI.skin.scrollView);
-            var style = EditorStyle.Get;
-            EditorGUILayout.BeginHorizontal();
-            if (!_isFetchSaveNamespace)
-            {
-                _isFetchSaveNamespace = true;
-                if (EditorPrefs.HasKey(nameof(_namespaceSchema))) _namespaceSchema = EditorPrefs.GetString(nameof(_namespaceSchema));
-            }
-
-            EditorGUILayout.LabelField(new GUIContent("Namespace", "Namespace of raw file code"), style.widthLabel);
-            _namespaceSchema = EditorGUILayout.TextField(_namespaceSchema);
-            EditorGUILayout.EndHorizontal();
-
-            GUILayout.Space(8);
-            GUI.backgroundColor = Colors.Lavender;
-            if (GUILayout.Button("Find all type of namespace")) OnTaskFind();
-            GUI.backgroundColor = Colors.White;
-
-            if (_isFindSuccess)
-            {
-                GUILayout.Space(8);
-                _isFoldoutType = EditorGUILayout.Foldout(_isFoldoutType, "Types", EditorStyles.foldoutHeader);
-                if (_isFoldoutType)
-                {
-                    EditorGUILayout.TextArea($"Below are all existing type in namespace. <b>Total {_types.Count} element.</b>", style.helpBox);
-                    for (var i = 0; i < _types.Count; i++)
-                    {
-                        EditorGUILayout.BeginHorizontal(style.areaHorizontal);
-                        EditorGUILayout.LabelField($"{GetTypeDefine(_types[i])} name", style.widthLabel);
-                        EditorGUILayout.LabelField("", _types[i].Name, EditorStyles.textField);
-                        EditorGUILayout.EndHorizontal();
-                    }
-                }
-
-                EditorGUILayout.Space(20);
-                EditorGUILayout.BeginHorizontal();
-                if (!_isFetchPath)
-                {
-                    _isFetchPath = true;
-                    _pathGenerate = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_GENERATE_CODE_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_GENERATE_CODE_PATH)) : EditorHelper.DEFAULT_GENERATE_CODE_PATH;
-                }
-
-                EditorGUILayout.LabelField("Generate Path", style.widthLabel);
-                GUI.enabled = false;
-                EditorGUILayout.TextField(_pathGenerate);
-                GUI.enabled = true;
-                EditorHelper.PickFolderPath(ref _pathGenerate, nameof(EditorHelper.DEFAULT_GENERATE_CODE_PATH));
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Options", style.widthLabel);
-                _indexOption = EditorGUILayout.Popup(_indexOption, _options, GUILayout.Width(120));
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.Space(8);
-                EditorHelper.Button("Generate code", style, GenerateSchema, Colors.Lavender);
-
-                string GetTypeDefine(Type type)
-                {
-                    if (type.IsAbstract && !type.IsInterface)
-                    {
-                        return "Abstract class";
-                    }
-
-                    if (type.IsClass)
-                    {
-                        return "Class";
-                    }
-
-                    if (type.IsInterface)
-                    {
-                        return "Interface";
-                    }
-
-                    if (type.IsEnum)
-                    {
-                        return "Enum";
-                    }
-
-                    return type.IsValueType ? "Struct" : "";
-                }
-
-                void GenerateSchema()
-                {
-                    var pathG = _pathGenerate;
-                    if (!EditorHelper.IsValidPath(pathG))
-                    {
-                        pathG = pathG.Insert(0, Application.dataPath);
-                    }
-
-                    UnityEngine.Debug.Log("Flatc generator : Start...");
-                    var generator = new FlatBuffersSchemaGenerator();
-                    var schema = generator.Create();
-                    foreach (var type in _types)
-                    {
-                        schema.AddType(type);
-                    }
-
-                    var builder = new StringBuilder();
-                    builder.AppendLine($"namespace FlatBufferGenerated.{_namespaceSchema};");
-                    using (var writer = new StringWriter(builder))
-                    {
-                        schema.WriteTo(writer);
-                    }
-
-                    if (!Directory.Exists(_pathSchema))
-                    {
-                        Directory.CreateDirectory(_pathSchema);
-                    }
-
-                    var schemaFilePath = $"{_pathSchema}/{_namespaceSchema}_Schema.fbs";
-                    File.WriteAllText(schemaFilePath, builder.ToString());
-
-                    var toolsPath = Path.GetFullPath(EditorHelper.PACKAGES_PATH);
-                    if (!Directory.Exists(toolsPath))
-                    {
-                        toolsPath = Path.Combine(Application.dataPath, "Root");
-                    }
-
-                    var psi = new ProcessStartInfo()
-                    {
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Normal,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        FileName = $"{toolsPath}/FlatBuffer/GeneratorTools/flatc.exe",
-                        Arguments = $@" --csharp -o ""{pathG}"" ""{Path.GetFullPath(schemaFilePath)}"" {_options[_indexOption]}",
-                    };
-
-                    var p = Process.Start(psi);
-                    if (p == null) return;
-                    p.EnableRaisingEvents = true;
-                    p.Exited += (sender,
-                        e) =>
-                    {
-                        UnityEngine.Debug.Log("Flatc generator : Complete!");
-                        p?.Dispose();
-                        p = null;
-                    };
-                }
-            }
-
-            void OnTaskFind()
-            {
-                if (string.IsNullOrEmpty(_namespaceSchema))
-                {
-                    EditorUtility.DisplayDialog("Namespace Error", "Are you sure namespace is not empty?", "Ok");
-                    return;
-                }
-
-                _isFindSuccess = false;
-                _types.Clear();
-                var assemblys = AppDomain.CurrentDomain.GetAssemblies();
-                foreach (var item in assemblys)
-                {
-                    foreach (var type in item.Modules.First().GetTypes())
-                    {
-                        if (type.Namespace != null && type.Namespace.Equals(_namespaceSchema) && !type.IsInterface && !type.IsEnum)
-                        {
-                            _isFindSuccess = true;
-                            _types.Add(type);
-                        }
-                    }
-                }
-
-                if (!_isFindSuccess)
-                {
-                    EditorUtility.DisplayDialog("Namespace Error", $"Are you sure namespace is correct or namespace now is empty?\nPlease check namespace again.", "Ok");
-                }
-                else
-                {
-                    EditorPrefs.SetString(nameof(_namespaceSchema), _namespaceSchema);
-                }
-            }
-
-            EditorGUILayout.Space(EditorStyle.LAST_SPACE_SCROLL);
-            EditorGUILayout.EndScrollView();
         }
     }
 
@@ -1179,18 +979,13 @@ namespace FlatBuffers
 
     internal class EditorSchema : SubWindow
     {
-        private string _searchFilter = "";
-        private bool _searching;
-        private string _pathBinaryFile;
         private Vector2 _scrollPosition;
-        private bool _isFetchPath;
-        private bool _isFetchSaveNamespace;
-        private string _namespaceSchema;
         private Type _typeParser;
-        private readonly List<ItemInfoCollapse> _itemInfo = new List<ItemInfoCollapse>();
         private string _masterName;
         private int _indexSelect;
-        private string[] _menuItems;
+        private Type[] _types;
+
+        private ScriptableObject _data;
 
         public EditorSchema(EditorWindow parent) : base("Editor", parent)
         {
@@ -1207,603 +1002,83 @@ namespace FlatBuffers
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, GUI.skin.scrollView);
             var style = EditorStyle.Get;
 
-            EditorGUILayout.BeginHorizontal();
-            //drop down select class.
-            if (EditorGUILayout.DropdownButton(new GUIContent(" " + (_menuItems != null ? _menuItems[_indexSelect] : "") + " "), FocusType.Passive, EditorStyles.toolbarDropDown))
-            {
-                if (_menuItems != null)
-                {
-                    var menu = new GenericMenu();
-                    for (int i = 0; i < _menuItems.Length; i++)
-                    {
-                        var index = i;
-                        if (i != _indexSelect)
-                            menu.AddItem(new GUIContent(_menuItems[i]), false, () =>
-                            {
-                                _indexSelect = index;
-                                //todo
-                            });
-                        else
-                        {
-                            menu.AddDisabledItem(new GUIContent(_menuItems[i]));
-                        }
-                    }
-
-                    menu.ShowAsContext();
-                }
-            }
-
-            GUILayout.Space(6);
-            _searchFilter = EditorGUILayout.TextField(_searchFilter, style.searchTextField, GUILayout.MinWidth(0));
-            if (GUILayout.Button("", style.searchCancelButton))
-            {
-                _searchFilter = "";
-                GUI.FocusControl(null);
-            }
-
-            _searching = _searchFilter != "";
-
-            if (GUILayout.Button(" Save ", EditorStyles.toolbarButton))
-            {
-                // EditorLocalPrefs.Save(files[selectedFile]);
-                // Refresh();
-            }
-
-            EditorGUILayout.EndHorizontal();
-
             GUILayout.Space(8);
-            EditorGUILayout.BeginHorizontal();
-            if (!_isFetchPath)
-            {
-                _isFetchPath = true;
-                if (EditorPrefs.HasKey(nameof(_pathBinaryFile))) _pathBinaryFile = EditorPrefs.GetString(nameof(_pathBinaryFile));
-            }
-
-            GUI.enabled = false;
-            EditorGUILayout.LabelField(".wr binary file", style.widthLabel);
-            EditorGUILayout.LabelField("", _pathBinaryFile, EditorStyles.textField);
-            GUI.enabled = true;
-            GUI.backgroundColor = Colors.Cornsilk;
-            if (GUILayout.Button(new GUIContent("", "Select file"), EditorStyles.colorField, GUILayout.Width(18), GUILayout.Height(18)))
-            {
-                var path = EditorUtility.OpenFilePanel("Select file", _pathBinaryFile, "wr");
-                if (!string.IsNullOrEmpty(path))
-                {
-                    _pathBinaryFile = path;
-                    _masterName = "";
-                    if (!string.IsNullOrEmpty(nameof(_pathBinaryFile)))
-                    {
-                        EditorPrefs.SetString(nameof(_pathBinaryFile), _pathBinaryFile);
-                    }
-                }
-
-                GUI.FocusControl(null);
-            }
-
-            GUI.backgroundColor = Colors.White;
-            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
-            if (!_isFetchSaveNamespace)
-            {
-                _isFetchSaveNamespace = true;
-                if (EditorPrefs.HasKey(nameof(_namespaceSchema))) _namespaceSchema = EditorPrefs.GetString(nameof(_namespaceSchema));
-            }
-
-            EditorGUILayout.LabelField(new GUIContent("Namespace", "Namespace of raw file code"), style.widthLabel);
-            _namespaceSchema = EditorGUILayout.TextField(_namespaceSchema);
+            EditorGUILayout.LabelField("Scriptable", style.widthLabel);
+            _data = (ScriptableObject) EditorGUILayout.ObjectField(_data, typeof(ScriptableObject), false);
             EditorGUILayout.EndHorizontal();
 
-            if (!string.IsNullOrEmpty(_pathBinaryFile))
+            if (_data != null)
             {
-                if (string.IsNullOrEmpty(_masterName))
-                {
-                    _masterName = Path.GetFileNameWithoutExtension(_pathBinaryFile).Split('_')[0];
-                    _typeParser = TypeUtil.GetTypeByName($"{_masterName}Edit");
-                    var assemblys = AppDomain.CurrentDomain.GetAssemblies();
+                EditorGUILayout.Space(8);
+                if (GUILayout.Button("Make Creator")) OnCreator();
+            }
 
-                    Type GetTypeRawMaster()
+            void OnCreator()
+            {
+                _types = ((IDatabaseInfo) _data).RootTypes;
+                foreach (var type in _types)
+                {
+                    foreach (var item in type.GetFields())
                     {
-                        foreach (var item in assemblys)
+                        var typeItem = item.FieldType;
+                        if (EditorHelper.IsEnumerable(typeItem))
                         {
-                            foreach (var type in item.Modules.First().GetTypes())
+                            var elementType = typeItem.GetElementType();
+                            if (elementType != null)
                             {
-                                if (type.Namespace == null || !type.Namespace.Equals(_namespaceSchema) || type.IsInterface || type.IsEnum) continue;
-                                if (type.Name.Equals(_masterName))
+                                if (elementType.IsClass && !(elementType.IsPrimitive || elementType.IsValueType || elementType == typeof(string)) && !elementType.IsEnum)
                                 {
-                                    return type;
+                                    //class[]
+                                }
+                                else if (elementType.IsEnum)
+                                {
+                                    //enum[]
+                                }
+                                else if (elementType == typeof(string))
+                                {
+                                    //string[]
+                                }
+                                else if (typeItem == typeof(float))
+                                {
+                                    //float[]
+                                }
+                                else
+                                {
+                                    //int[]
                                 }
                             }
                         }
-
-                        return null;
-                    }
-
-                    string NameFieldInMaster(Type type,
-                        ref Type masterTable)
-                    {
-                        if (masterTable == null)
+                        else
                         {
-                            return "";
-                        }
-
-                        foreach (var info in masterTable.GetProperties())
-                        {
-                            if (info.PropertyType == type || EditorHelper.IsEnumerable(info.PropertyType) && type.IsAssignableFrom(info.PropertyType.GetElementType()))
+                            if (typeItem.IsClass && !(typeItem.IsPrimitive || typeItem.IsValueType || typeItem == typeof(string)) && !typeItem.IsEnum)
                             {
-                                return info.Name;
+                                //class
                             }
-                        }
-
-                        return "";
-                    }
-
-                    var typeRawMaster = GetTypeRawMaster();
-
-                    foreach (var item in assemblys)
-                    {
-                        foreach (var type in item.Modules.First().GetTypes())
-                        {
-                            if (type.Namespace == null || !type.Namespace.Equals(_namespaceSchema) || type.IsInterface || type.IsEnum) continue;
-                            if (type.Name.Equals(_masterName)) continue;
-
-                            var propInfos = type.GetProperties();
-                            var propertyData = new KeyValuePair<string, Type>[propInfos.Length];
-                            for (int i = 0; i < propInfos.Length; i++)
+                            else if (typeItem.IsEnum)
                             {
-                                propertyData[i] = new KeyValuePair<string, Type>(propInfos[i].Name, propInfos[i].PropertyType);
+                                //enum
                             }
-
-                            _itemInfo.Add(new ItemInfoCollapse(type.Name, propertyData, NameFieldInMaster(type, ref typeRawMaster)));
-                        }
-                    }
-
-                    _menuItems = new string[_itemInfo.Count];
-                    for (int i = 0; i < _itemInfo.Count; i++)
-                    {
-                        _menuItems[i] = _itemInfo[i].Name;
-                    }
-                }
-
-                if (GUILayout.Button("Make Viewer")) OnTaskMakeViewer();
-
-                if (_typeParser != null)
-                {
-                    if (GUILayout.Button("Parser")) OnTaskParser();
-                }
-
-                void OnTaskMakeViewer()
-                {
-                    if (string.IsNullOrEmpty(_pathBinaryFile))
-                    {
-                        EditorUtility.DisplayDialog("Path Error", "Are you sure path is not empty?", "Ok");
-                        return;
-                    }
-
-                    var scriptViewer = EditorHelper.GetTemplateByName("GameDatabaseViewTemplate");
-                    var scriptsPath = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) : EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH;
-
-                    if (!EditorHelper.IsValidPath(scriptsPath))
-                    {
-                        scriptsPath = scriptsPath.Insert(0, Application.dataPath);
-                    }
-
-                    if (!Directory.Exists(scriptsPath))
-                    {
-                        Directory.CreateDirectory(scriptsPath);
-                    }
-
-                    var dataAppend = "";
-                    for (int i = 0; i < _itemInfo.Count; i++)
-                    {
-                        dataAppend += $"if(itemInfoCollapse.Name == \"{_itemInfo[i].Name}\"){{\n";
-                        dataAppend += $"results = new object[dataTable.{_itemInfo[i].NameMasterField}Length, itemInfoCollapse.NameTypeField.Length];\n";
-                        dataAppend += $"for (int i = 0; i < dataTable.{_itemInfo[i].NameMasterField}Length; i++){{\n";
-                        dataAppend += $"var idata = dataTable.{_itemInfo[i].NameMasterField}(i);\n";
-                        dataAppend += "if (idata != null){\n";
-
-                        int j = 0;
-                        foreach (var pair in _itemInfo[i].NameTypeField)
-                        {
-                            if (EditorHelper.IsEnumerable(pair.Value))
+                            else if (typeItem == typeof(string))
                             {
-                                dataAppend += $"var __{pair.Key.ToLower()} = new object[idata.Value.{pair.Key}Length];\n";
-                                dataAppend += $"for (int j = 0; j < idata.Value.{pair.Key}Length; j++){{\n";
-                                dataAppend += $"__{pair.Key.ToLower()}[j] = idata.Value.{pair.Key}(j);}}\n";
-                                dataAppend += $"results[i, {j}] =  __{pair.Key.ToLower()};\n";
+                                //string
+                            }
+                            else if (typeItem == typeof(float))
+                            {
+                                //float
                             }
                             else
                             {
-                                dataAppend += $"results[i, {j}] = idata.Value.{pair.Key};\n";
+                                //int
                             }
-
-                            j++;
                         }
-
-                        dataAppend += "\n}}}\n";
-                    }
-
-                    scriptViewer = scriptViewer.Replace("__namespace__", $"FlatBufferGenerated.{_namespaceSchema}").Replace("__name__", _masterName).Replace("__data_replace__", dataAppend);
-
-                    EditorHelper.WriteToFile($"{scriptsPath}/{_masterName}Edit.cs".Replace("/", "\\"), scriptViewer);
-
-                    AssetDatabase.SaveAssets();
-                    AssetDatabase.Refresh();
-                    UnityEngine.Debug.Log($"<color=#25854B>Create view success!</color>");
-                }
-
-                void OnTaskParser()
-                {
-                    var byteBuffer = FlatHelper.Load(_pathBinaryFile);
-
-                    var t = AppDomain.CurrentDomain.GetAssemblies().SelectMany(assembly => assembly.GetTypes()).FirstOrDefault(type => type.Name == _masterName && type.Namespace != _namespaceSchema);
-
-                    var data = t?.GetMethods(BindingFlags.Public | BindingFlags.Static).Where(x => x.Name == $"GetRootAs{_masterName}").FirstOrDefault(x => x.GetParameters().Length == 1)?.Invoke(null, new object[] {byteBuffer});
-
-                    for (int i = 0; i < _itemInfo.Count; i++)
-                    {
-                        var results = (object[,]) _typeParser?.GetMethods(BindingFlags.Public | BindingFlags.Static).Where(x => x.Name == "Execute").FirstOrDefault(x => x.GetParameters().Length == 2)?.Invoke(null, new object[] {data, _itemInfo[i]});
                     }
                 }
             }
 
             EditorGUILayout.Space(EditorStyle.LAST_SPACE_SCROLL);
             EditorGUILayout.EndScrollView();
-        }
-
-        #region ItemView
-
-        internal interface IItemGui
-        {
-            void Expand();
-            void Collapse();
-        }
-
-        // internal struct ItemGui<T> : IItemGui
-        // {
-        //     internal struct Changes
-        //     {
-        //         public T currentValue;
-        //         public T newValue;
-        //         public bool valueChanged;
-        //
-        //         public Changes(T currentValue, T newValue, bool valueChanged)
-        //         {
-        //             this.currentValue = currentValue;
-        //             this.newValue = newValue;
-        //             this.valueChanged = valueChanged;
-        //         }
-        //     }
-        //
-        //     private AnimBool collapse;
-        //     private readonly string _keyCollapse;
-        //     private readonly Type type;
-        //     private readonly string label;
-        //     private readonly string valueName;
-        //     private readonly int _index;
-        //     private List<Changes> changes;
-        //     private int foundItemsCount;
-        //     private bool nothingFound;
-        //     private bool[] showItem;
-        //
-        //     public ItemGui(int index, ref EditorWindow window, string customLabel = null, string customValueName = null)
-        //     {
-        //         _index = index;
-        //         type = typeof(T);
-        //         label = customLabel ?? type.Name;
-        //         valueName = customValueName ?? label;
-        //         _keyCollapse = $"{type.Name}_{index}_collapsed";
-        //         collapse = new AnimBool(window.Repaint) {speed = 3.5f, target = EditorPrefs.GetBool(_keyCollapse)};
-        //         changes = new List<Changes>();
-        //         foundItemsCount = 0;
-        //         nothingFound = false;
-        //         showItem = new bool[0];
-        //     }
-        //
-        //     public void Expand()
-        //     {
-        //         EditorPrefs.SetBool(_keyCollapse, true);
-        //     }
-        //
-        //     public void Collapse()
-        //     {
-        //         EditorPrefs.SetBool(_keyCollapse, false);
-        //     }
-        //
-        //     public T DoLayout(T itemData, Type itemType)
-        //     {
-        //         string filter = _searchFilter.ToLower();
-        //         nothingFound = false;
-        //         if (!_searching)
-        //             foundItemsCount = itemType.GetProperties();
-        //         else
-        //         {
-        //             // showItem = new bool[prefs.dictionary.Count];
-        //             // foundItemsCount = 0;
-        //             // int i = 0;
-        //             // foreach (var value in prefs.dictionary)
-        //             // {
-        //             //     if (value.Key.ToLower().Contains(filter))
-        //             //     {
-        //             //         showItem[i] = true;
-        //             //         foundItemsCount++;
-        //             //     }
-        //             //
-        //             //     i++;
-        //             // }
-        //             //
-        //             // nothingFound = foundItemsCount == 0;
-        //         }
-        //
-        //         if (window == null || script == null || nothingFound)
-        //             return prefs;
-        //         shownTypesCount++;
-        //         changes.Clear();
-        //         EditorGUILayout.BeginVertical(regionBg, GUILayout.MaxHeight(18));
-        //         EditorGUILayout.BeginHorizontal();
-        //
-        //         EditorGUI.BeginChangeCheck();
-        //         collapse.target = GUILayout.Toggle(searching ? true : EditorLocalPrefs.GetBool(PN_collapse),
-        //             label, foldout, GUILayout.ExpandWidth(true));
-        //         if (EditorGUI.EndChangeCheck())
-        //         {
-        //             EditorLocalPrefs.SetBool(PN_collapse, collapse.target);
-        //         }
-        //
-        //         GUILayout.FlexibleSpace();
-        //         GUILayout.Button("[" + foundItemsCount + "]", EditorStyles.centeredGreyMiniLabel);
-        //
-        //         if (GUILayout.Button(new GUIContent("", !searching ? "Clear All" : "Remove Found Items"), "WinBtnCloseMac"))
-        //         {
-        //             if (!searching)
-        //                 prefs.ClearAll();
-        //             else
-        //             {
-        //                 int i = 0;
-        //                 foreach (var value in prefs.dictionary)
-        //                 {
-        //                     if (!showItem[i])
-        //                     {
-        //                         i++;
-        //                         continue;
-        //                     }
-        //                     else
-        //                         changes.Add(new Changes(value.Key, "", default, false, false, true, 0));
-        //
-        //                     i++;
-        //                 }
-        //             }
-        //
-        //             EditorUtility.SetDirty(script);
-        //         }
-        //
-        //         if (GUILayout.Button(new GUIContent("", "Add New Item"), "WinBtnMaxMac"))
-        //         {
-        //             int keysCount = prefs.Length;
-        //             string newItemKey = "New " + valueName + " ";
-        //             while (prefs.ContainsKey(newItemKey + keysCount))
-        //                 keysCount++;
-        //
-        //             prefs.Add(newItemKey + keysCount, default);
-        //             EditorUtility.SetDirty(script);
-        //         }
-        //
-        //         EditorGUILayout.EndHorizontal();
-        //         if (EditorGUILayout.BeginFadeGroup(collapse.faded))
-        //         {
-        //             if (prefs.Count > 0)
-        //             {
-        //                 int i = 0;
-        //                 foreach (var value in prefs.dictionary)
-        //                 {
-        //                     if (searching && !showItem[i])
-        //                     {
-        //                         i++;
-        //                         continue;
-        //                     }
-        //
-        //                     EditorGUILayout.BeginHorizontal();
-        //                     bool keyChanged = false;
-        //                     bool keyChanged = false;
-        //                     bool valueChanged = false;
-        //                     EditorGUI.BeginChangeCheck();
-        //                     var newKey = EditorGUILayout.DelayedTextField(value.Key);
-        //                     if (EditorGUI.EndChangeCheck())
-        //                         keyChanged = true;
-        //
-        //                     dynamic newValue = value.Value;
-        //                     EditorGUI.BeginChangeCheck();
-        //
-        //                     if (type == typeof(bool))
-        //                         newValue = GUILayout.Toggle(newValue, newValue ? "True" : "False", EditorStyles.miniButton);
-        //
-        //                     if (type == typeof(int))
-        //                         newValue = EditorGUILayout.IntField(newValue);
-        //
-        //                     if (type == typeof(float))
-        //                         newValue = EditorGUILayout.FloatField(newValue);
-        //
-        //                     if (type == typeof(Vector2))
-        //                         newValue = EditorGUILayout.Vector2Field(GUIContent.none, newValue);
-        //
-        //                     if (type == typeof(Vector3))
-        //                         newValue = EditorGUILayout.Vector3Field(GUIContent.none, newValue);
-        //
-        //                     if (type == typeof(Vector4))
-        //                         newValue = EditorGUILayout.Vector4Field(GUIContent.none, newValue);
-        //
-        //                     if (type == typeof(string))
-        //                         newValue = EditorGUILayout.TextField(newValue);
-        //
-        //                     if (EditorGUI.EndChangeCheck())
-        //                         valueChanged = true;
-        //
-        //                     // Remove button
-        //                     bool remove = GUILayout.Button("", macRemoveButton);
-        //                     EditorGUILayout.EndHorizontal();
-        //                     // Write changes
-        //                     if (keyChanged || valueChanged || remove)
-        //                         changes.Add(new Changes(value.Key, newKey, newValue, keyChanged, valueChanged, remove, i));
-        //                     i++;
-        //                 }
-        //             }
-        //             else
-        //             {
-        //                 EditorGUILayout.HelpBox("List is empty.", MessageType.Info);
-        //             }
-        //         }
-        //
-        //         // Apply changes
-        //         for (int c = 0; c < changes.Count; c++)
-        //         {
-        //             var change = changes[c];
-        //             if (change.remove)
-        //             {
-        //                 prefs.dictionary.Remove(change.currentKey);
-        //                 continue;
-        //             }
-        //
-        //             if (change.keyChanged)
-        //             {
-        //                 prefs.dictionary.Remove(change.currentKey);
-        //                 prefs.dictionary.Add(change.newKey, change.value);
-        //             }
-        //
-        //             if (change.valueChanged)
-        //             {
-        //                 prefs.dictionary[change.newKey] = change.value;
-        //             }
-        //         }
-        //
-        //         if (changes.Count > 0)
-        //             EditorUtility.SetDirty(script);
-        //         EditorGUILayout.EndFadeGroup();
-        //         EditorGUILayout.EndVertical();
-        //         return prefs;
-        //     }
-        // }
-
-        #endregion
-    }
-
-    internal class CreatorWindow : EditorWindow
-    {
-        private string _nameSpace;
-        private string _name;
-        private int _typeIndex;
-        private int _typeInheritanceIndex;
-        private string _pathCreator;
-        private bool _isFetchPath;
-        private readonly string[] _types = {"struct", "class", "enum"};
-
-        private readonly string[] _enumInheritanceType = {"none", "byte", "int", "long", "sbyte", "short", "uint", "ulong", "ushort"};
-
-        //private readonly string[] _typeCollections = {"sbyte", "byte", "bool", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "enum", "string", "struct", "class"};
-        private const string TEMPLATE_WIDTH_NAMESPACE = @"namespace __namespace__
-{
-    public __type__ __name__
-    {
-
-    }
-}";
-
-        public static void ShowWindow()
-        {
-            var window = GetWindow(typeof(CreatorWindow));
-            window.titleContent = new GUIContent("Scripts Creator");
-            window.minSize = new Vector2(420, 150);
-        }
-
-        public void OnGUI()
-        {
-            var style = EditorStyle.Get;
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Namespace", style.widthLabel);
-            _nameSpace = EditorGUILayout.TextField(_nameSpace);
-            if (string.IsNullOrEmpty(_nameSpace))
-            {
-                GUI.color = Colors.Red;
-                GUILayout.Label(new GUIContent("[*]", "Can not be null or empty!"), GUILayout.Width(20));
-                GUI.color = Colors.White;
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Name", style.widthLabel);
-            _name = EditorGUILayout.TextField(_name);
-            if (string.IsNullOrEmpty(_name))
-            {
-                GUI.color = Colors.Red;
-                GUILayout.Label(new GUIContent("[*]", "Can not be null or empty!"), GUILayout.Width(20));
-                GUI.color = Colors.White;
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            GUILayout.Space(10);
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Type", style.widthLabel);
-            _typeIndex = EditorGUILayout.Popup(_typeIndex, _types, GUILayout.Width(80));
-
-            if (_types[_typeIndex].Equals("enum"))
-            {
-                GUILayout.Space(20);
-                EditorGUILayout.LabelField("Inheritance", style.widthLabel);
-                _typeInheritanceIndex = EditorGUILayout.Popup(_typeInheritanceIndex, _enumInheritanceType, GUILayout.Width(80));
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Path", style.widthLabel);
-            if (!_isFetchPath)
-            {
-                _isFetchPath = true;
-                _pathCreator = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SCRIPTS_CREATOR_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SCRIPTS_CREATOR_PATH)) : EditorHelper.DEFAULT_SCRIPTS_CREATOR_PATH;
-            }
-
-            GUI.enabled = false;
-            EditorGUILayout.TextField(_pathCreator);
-            GUI.enabled = true;
-
-            EditorHelper.PickFolderPath(ref _pathCreator, nameof(EditorHelper.DEFAULT_SCRIPTS_CREATOR_PATH));
-            EditorGUILayout.EndHorizontal();
-
-            GUILayout.Space(10);
-            EditorUtil.DrawUiLine(Colors.PaleGreen);
-            if (!string.IsNullOrEmpty(_name) && !string.IsNullOrEmpty(_nameSpace))
-            {
-                EditorHelper.Button("Create", style, Create, Colors.Lavender);
-            }
-
-            void Create()
-            {
-                var pathG = _pathCreator;
-                if (!EditorHelper.IsValidPath(pathG))
-                {
-                    pathG = pathG.Insert(0, Application.dataPath);
-                }
-
-                var result = TEMPLATE_WIDTH_NAMESPACE;
-                result = result.Replace("__type__", _types[_typeIndex]).Replace("__namespace__", _nameSpace);
-
-                if (_types[_typeIndex].Equals("enum") && !_enumInheritanceType[_typeInheritanceIndex].Equals("none"))
-                {
-                    result = result.Replace("__name__", $"{_name} : {_enumInheritanceType[_typeInheritanceIndex]}");
-                }
-                else
-                {
-                    result = result.Replace("__name__", _name);
-                }
-
-                EditorHelper.WriteToFile($@"{pathG}\{_name}.cs", result);
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-                _name = "";
-                _typeInheritanceIndex = 0;
-            }
         }
     }
 
@@ -2103,20 +1378,11 @@ namespace FlatBuffers
         internal static bool IsEnumerable(Type type) => IsGenericEnumerable(type) || type.IsArray;
     }
 
-    public struct ItemInfoCollapse
+    public interface IDatabaseInfo
     {
-        public string Name { get; set; }
-        public KeyValuePair<string, Type>[] NameTypeField { get; set; }
-        public string NameMasterField { get; set; } //Name field in master table is contain array data of that item type
-
-        public ItemInfoCollapse(string name,
-            KeyValuePair<string, Type>[] nameTypeField,
-            string nameMasterField)
-        {
-            Name = name;
-            NameTypeField = nameTypeField;
-            NameMasterField = nameMasterField;
-        }
+        string MasterName { get; }
+        string NameSpace { get; }
+        Type[] RootTypes { get; }
     }
 }
 

@@ -7,6 +7,7 @@
   "author": "yenmoc <phongsoyenmoc.diep@gmail.com> (https://github.com/phongsoyenmoc)",
   "license": "MIT",
   "dependencies": {
+    "com.worldreaver.naughtyattributes": "ssh://git@github.com/worldreaver/NaughtyAttributes#1.2.0",
     "com.worldreaver.unitask": "ssh://git@github.com/worldreaver/UniTask#1.3.1",
     "com.worldreaver.utility": "ssh://git@github.com/worldreaver/Utility#1.2.0"
   },
