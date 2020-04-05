@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/worldreaver/FlatData/compare/1.1.0...1.2.0) (2020-04-05)
+
+
+### Features
+
+* remove gen schemas form c# ([e834678](https://github.com/worldreaver/FlatData/commit/e834678878b251ab90ef0456f3ed1d9e41ca988d))
+
 # [1.1.0](https://github.com/worldreaver/FlatData/compare/1.0.3...1.1.0) (2020-03-17)
 
 
