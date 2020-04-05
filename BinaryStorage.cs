@@ -3,6 +3,6 @@
     [System.Serializable]
     public class BinaryStorage : UnityEngine.ScriptableObject
     {
-        public byte[] data;
+        [UnityEngine.HideInInspector] public byte[] data;
     }
 }

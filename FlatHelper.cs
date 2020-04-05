@@ -48,8 +48,7 @@ namespace FlatBuffers
             }
         }
 #endif
-
-
+        
         /// <summary>
         /// 
         /// </summary>
