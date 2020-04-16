@@ -11,7 +11,7 @@
     "com.unity.ide.vscode": "1.1.4",
     "com.unity.multiplayer-hlapi": "1.0.4",
     "com.unity.purchasing": "2.0.6",
-    "com.unity.test-framework": "1.1.11",
+    "com.unity.test-framework": "1.1.13",
     "com.unity.textmeshpro": "2.0.1",
     "com.unity.timeline": "1.2.12",
     "com.unity.ugui": "1.0.0",
@@ -60,17 +60,17 @@
       "revision": "HEAD",
       "hash": "aa9f6ea79913e7e2749edea528c42f2f700ac401"
     },
-    "com.worldreaver.unitask": {
-      "revision": "upm",
-      "hash": "bf731deff01d968d1d61d02030c60956c867d71d"
-    },
-    "com.worldreaver.utility": {
-      "revision": "upm",
-      "hash": "de4ea3212c597735a0b28ea32a91472b3d4e5cb1"
-    },
     "com.worldreaver.naughtyattributes": {
       "revision": "upm",
       "hash": "8527533ff66409a588a2b4d07329091665a81ba4"
+    },
+    "com.worldreaver.unitask": {
+      "revision": "upm",
+      "hash": "43b394371bbdc2bec0d1df8b2f06eeaa1cc4ef2e"
+    },
+    "com.worldreaver.utility": {
+      "revision": "upm",
+      "hash": "923adbd87dcd484e6f6138e3205bd7b9917b5fae"
     }
   }
 }
