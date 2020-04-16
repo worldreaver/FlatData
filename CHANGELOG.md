@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/worldreaver/FlatData/compare/1.2.0...1.2.1) (2020-04-16)
+
+
+### Bug Fixes
+
+* upgrade dependencies ([24c8cc7](https://github.com/worldreaver/FlatData/commit/24c8cc7f315ca8371ec2b7bbaeaa94fc98c8bfcb))
+
 # [1.2.0](https://github.com/worldreaver/FlatData/compare/1.1.0...1.2.0) (2020-04-05)
 
 
