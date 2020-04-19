@@ -10,14 +10,9 @@ namespace FlatBuffers
     using System.Net;
     using System.Net.Security;
     using System.Security.Cryptography.X509Certificates;
-    using Google.Apis.Auth.OAuth2;
-    using Google.Apis.Services;
-    using Google.Apis.Sheets.v4;
-    using Google.Apis.Sheets.v4.Data;
     using System.Text;
     using System.Diagnostics;
     using System.Threading;
-    using Google.Apis.Util.Store;
     using System.Text.RegularExpressions;
     using System.Reflection;
     using Worldreaver.EditorUtility;
@@ -181,7 +176,7 @@ namespace FlatBuffers
             {
                 new SchemaWindow(this),
                 /*new EditorSchema(this),*/
-                new SpreadsheetWindow(this)
+                /*new SpreadsheetWindow(this)*/
             };
         }
 
@@ -199,585 +194,585 @@ namespace FlatBuffers
         }
     }
 
-    internal class SpreadsheetWindow : SubWindow
-    {
-        private const string SAVE_SHEET_KEY = "ss_key";
-        private const string SAVE_LIST_SHEET_NAME = "ss_sheet_name";
-        private string _pathGenerateBinary;
-        private string _pathGenerateCode;
-        private Type _creatorType;
-        private bool _isFetchPath;
-        private bool _isFetchPathBinary;
-        private bool _isFetchingSheetName;
-        private bool _isFetchSaveSheetName;
-        private bool _isFetchSpreadSheetKey;
-        private const string ROOT_TABLE_NAME = "root_table_name";
-
-        public SpreadsheetWindow(EditorWindow parent) : base("Spreadsheet", parent)
-        {
-        }
-
-        public SpreadsheetWindow(string name,
-            EditorWindow parent) : base(name, parent)
-        {
-        }
-
-        #region -- properties ------------------------------------------------
-
-        private const string CLIENT_ID = "121683403714-fpqv8gipdkfivqdsi24olgqrtau94l4v.apps.googleusercontent.com";
-        private const string CLIENT_SECRET = "ra-CeiVe7xRR1JT4kgub-VE6";
-        private const string APP_NAME = "Fetch";
-        private static readonly string[] Scopes = {SheetsService.Scope.SpreadsheetsReadonly};
-
-        /// <summary>
-        /// Key of the spreadsheet. Get from url of the spreadsheet.
-        /// </summary>
-        private string _spreadSheetKey = "";
-
-        /// <summary>
-        /// List of sheet names which want to download
-        /// </summary>
-        private readonly List<string> _wantedSheetNames = new List<string>();
-
-        /// <summary>
-        /// Position of the scroll view.
-        /// </summary>
-        private Vector2 _scrollPosition;
-
-        /// <summary>
-        /// Progress of download and convert action. 100 is "completed".
-        /// </summary>
-        private float _progress = 100;
-
-        /// <summary>
-        /// The message which be shown on progress bar when action is running.
-        /// </summary>
-        private string _progressMessage = "";
-
-        #endregion
-
-        #region -- function ------------------------------------------------
-
-        private void Initialized()
-        {
-            _progress = 100;
-            _progressMessage = "";
-            ServicePointManager.ServerCertificateValidationCallback = MyRemoteCertificateValidationCallback;
-        }
-
-        public override void OnGUI()
-        {
-            var style = EditorStyle.Get;
-            Initialized();
-            EditorUtil.DrawUiLine(Colors.SeaGreen);
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, GUI.skin.scrollView);
-
-            EditorGUILayout.BeginHorizontal(style.areaHorizontal);
-            {
-                if (!_isFetchSpreadSheetKey)
-                {
-                    _isFetchSpreadSheetKey = true;
-                    if (EditorPrefs.HasKey(SAVE_SHEET_KEY)) _spreadSheetKey = EditorPrefs.GetString(SAVE_SHEET_KEY);
-                }
-
-                EditorGUILayout.LabelField(new GUIContent("API Key", "SpreadSheet Key or SpreadSheet Full Link"), style.widthLabel);
-                _spreadSheetKey = EditorGUILayout.TextField(_spreadSheetKey);
-                //edit spread sheet key if enter full link
-                //https://docs.google.com/spreadsheets/d/..../edit#gid=1284357149
-                if (_spreadSheetKey.Contains("docs.google.com"))
-                {
-                    _spreadSheetKey = _spreadSheetKey.Replace("https://docs.google.com/spreadsheets/d/", "");
-                    var raws = _spreadSheetKey.Split('/');
-                    _spreadSheetKey = raws[0];
-                }
-            }
-
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.HelpBox("These sheets below will be downloaded. Let the list blank (remove all items) if you want to download all sheets", MessageType.Info);
-            var removeId = -1;
-            if (!_isFetchSaveSheetName)
-            {
-                _isFetchSaveSheetName = true;
-                if (EditorPrefs.HasKey(SAVE_LIST_SHEET_NAME))
-                {
-                    _wantedSheetNames.Clear();
-                    var sheetCount = EditorPrefs.GetInt(SAVE_LIST_SHEET_NAME);
-                    for (int i = 0; i < sheetCount; i++)
-                    {
-                        _wantedSheetNames.Add(EditorPrefs.GetString(SAVE_LIST_SHEET_NAME + i));
-                    }
-                }
-            }
-
-            for (var i = 0; i < _wantedSheetNames.Count; i++)
-            {
-                EditorGUILayout.BeginHorizontal(style.areaHorizontal);
-                EditorGUILayout.LabelField($"Sheet {i}", style.widthLabel);
-                _wantedSheetNames[i] = EditorGUILayout.TextField(_wantedSheetNames[i]);
-                if (GUILayout.Button("", style.searchCancelButton)) removeId = i;
-                EditorGUILayout.EndHorizontal();
-            }
-
-            if (removeId >= 0) _wantedSheetNames.RemoveAt(removeId);
-            EditorGUILayout.Space(8);
-            GUI.color = Colors.Cornsilk;
-            GUILayout.Label(_wantedSheetNames.Count <= 0 ? "Status: Download all sheets" : $"Status: Download {_wantedSheetNames.Count} sheets");
-            GUI.color = Colors.White;
-
-            GUI.backgroundColor = Colors.Lavender;
-            if (GUILayout.Button("Fetch sheet name", GUILayout.Width(130)))
-            {
-                FetchSheetName();
-            }
-
-            GUI.backgroundColor = Colors.White;
-
-            if (!_isFetchPath)
-            {
-                _isFetchPath = true;
-                _pathGenerateCode = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) : EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH;
-            }
-
-            GUILayout.Space(8);
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Generate path", style.widthLabel);
-            GUI.enabled = false;
-            EditorGUILayout.TextField(_pathGenerateCode);
-            GUI.enabled = true;
-            EditorHelper.PickFolderPath(ref _pathGenerateCode, nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH));
-            EditorGUILayout.EndHorizontal();
-
-            GUI.backgroundColor = Colors.LawnGreen;
-            if (GUILayout.Button("Fetch"))
-            {
-                FetchGenerate();
-            }
-
-            void FetchSheetName()
-            {
-                if (string.IsNullOrEmpty(_spreadSheetKey))
-                {
-                    EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
-                    return;
-                }
-
-                if (_isFetchingSheetName)
-                {
-                    return;
-                }
-
-                _isFetchingSheetName = true;
-                _wantedSheetNames.Clear();
-                var service = new SheetsService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = GetCredential(),
-                    ApplicationName = APP_NAME,
-                });
-                var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
-                var sheets = spreadSheetData.Sheets;
-
-                if (sheets != null && sheets.Count > 0)
-                {
-                    foreach (var sheet in sheets)
-                    {
-                        _wantedSheetNames.Add(sheet.Properties.Title);
-                    }
-
-                    _isFetchingSheetName = false;
-                }
-            }
-
-            void FetchGenerate()
-            {
-                if (string.IsNullOrEmpty(_spreadSheetKey))
-                {
-                    EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
-                    return;
-                }
-
-                _progress = 0;
-                var pathG = _pathGenerateCode;
-                if (!EditorHelper.IsValidPath(pathG))
-                {
-                    pathG = pathG.Insert(0, Application.dataPath);
-                }
-
-                GenerateDatabase(pathG);
-                EditorPrefs.SetString(SAVE_SHEET_KEY, _spreadSheetKey);
-                EditorPrefs.SetInt(SAVE_LIST_SHEET_NAME, _wantedSheetNames.Count);
-                for (int i = 0; i < _wantedSheetNames.Count; i++)
-                {
-                    EditorPrefs.SetString(SAVE_LIST_SHEET_NAME + i, _wantedSheetNames[i]);
-                }
-            }
-
-            GUI.backgroundColor = Colors.White;
-
-            if (_creatorType == null) _creatorType = TypeUtil.GetTypeByName("GameDatabaseCreate");
-            if (_creatorType != null)
-            {
-                if (!_isFetchPathBinary)
-                {
-                    _isFetchPathBinary = true;
-                    _pathGenerateBinary = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH)) : EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH;
-                }
-
-                GUILayout.Space(10);
-                EditorUtil.DrawUiLine(Colors.SeaGreen);
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Generate path", style.widthLabel);
-                GUI.enabled = false;
-                EditorGUILayout.TextField(_pathGenerateBinary);
-                GUI.enabled = true;
-                EditorHelper.PickFolderPath(ref _pathGenerateBinary, nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH));
-                EditorGUILayout.EndHorizontal();
-
-                if (EditorPrefs.HasKey(ROOT_TABLE_NAME))
-                {
-                    GUI.color = Colors.Cornsilk;
-                    EditorGUILayout.LabelField($"Name binary file will is '{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary'");
-                    GUI.color = Colors.White;
-                    GUI.backgroundColor = Colors.LawnGreen;
-                    if (GUILayout.Button("Generate binary")) GenerateBinary();
-                    if (GUILayout.Button("Generate binary storage")) GenerateBinaryStorage();
-                    GUI.backgroundColor = Colors.White;
-                }
-                else
-                {
-                    GUI.color = Colors.Orangered;
-                    EditorGUILayout.LabelField("Can not detected name root table!", GUILayout.Width(200));
-                    GUI.color = Colors.White;
-                    if (GUILayout.Button("Get Name Root Table", GUILayout.Width(160))) OnGetNameRootTable();
-                }
-
-                void OnGetNameRootTable()
-                {
-                    if (string.IsNullOrEmpty(_spreadSheetKey))
-                    {
-                        EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
-                        return;
-                    }
-
-                    if (_isFetchingSheetName)
-                    {
-                        return;
-                    }
-
-                    _isFetchingSheetName = true;
-                    var service = new SheetsService(new BaseClientService.Initializer()
-                    {
-                        HttpClientInitializer = GetCredential(),
-                        ApplicationName = APP_NAME,
-                    });
-                    var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
-                    EditorPrefs.SetString(ROOT_TABLE_NAME, spreadSheetData.Properties.Title);
-                    _isFetchingSheetName = false;
-                }
-
-                void GenerateBinary()
-                {
-                    var pathG = _pathGenerateBinary;
-                    if (!EditorHelper.IsValidPath(pathG))
-                    {
-                        pathG = pathG.Insert(0, Application.dataPath);
-                    }
-
-                    if (!Directory.Exists(pathG))
-                    {
-                        Directory.CreateDirectory(pathG);
-                    }
-
-                    _creatorType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
-                    GUI.FocusControl(null);
-                }
-
-                void GenerateBinaryStorage()
-                {
-                    var pathG = _pathGenerateBinary;
-                    if (!EditorHelper.IsValidPath(pathG))
-                    {
-                        pathG = pathG.Insert(0, Application.dataPath);
-                    }
-
-                    if (!Directory.Exists(pathG))
-                    {
-                        Directory.CreateDirectory(pathG);
-                    }
-
-                    _creatorType.GetMethod("Run2", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
-                    GUI.FocusControl(null);
-                }
-            }
-
-            if ((_progress < 100) && (_progress > 0))
-            {
-                if (EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100))
-                {
-                    _progress = 100;
-                    EditorUtility.ClearProgressBar();
-                }
-            }
-            else
-            {
-                EditorUtility.ClearProgressBar();
-            }
-
-            EditorGUILayout.Space(EditorStyle.LAST_SPACE_SCROLL);
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void GenerateDatabase(string scriptsPath)
-        {
-            UnityEngine.Debug.Log("Downloading with sheet key: " + _spreadSheetKey);
-
-            //Authenticate
-            _progressMessage = "Authenticating...";
-            var service = new SheetsService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = GetCredential(),
-                ApplicationName = APP_NAME,
-            });
-
-            _progress = 5;
-            EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
-            _progressMessage = "Get list of spreadsheets...";
-            EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
-
-            var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
-            var sheets = spreadSheetData.Sheets;
-
-            if ((sheets == null) || (sheets.Count <= 0))
-            {
-                UnityEngine.Debug.LogError("Not found any data!");
-                _progress = 100;
-                EditorUtility.ClearProgressBar();
-                return;
-            }
-
-            _progress = 15;
-
-            //For each sheet in received data, check the sheet name. If that sheet is the wanted sheet, add it into the ranges.
-            var ranges = new List<string>();
-            foreach (var sheet in sheets)
-            {
-                if ((_wantedSheetNames.Count <= 0) || (_wantedSheetNames.Contains(sheet.Properties.Title)))
-                {
-                    ranges.Add(sheet.Properties.Title);
-                }
-            }
-
-            var request = service.Spreadsheets.Values.BatchGet(_spreadSheetKey);
-            request.Ranges = ranges;
-            var response = request.Execute();
-            var dataCreatorScript = EditorHelper.GetTemplateByName("GameDatabaseCreateTemplate");
-            var appends = "";
-            var fileNamespace = "";
-            var prexMasterTable = "";
-            var masterTitle = spreadSheetData.Properties.Title;
-            EditorPrefs.SetString(ROOT_TABLE_NAME, masterTitle);
-            //For each wanted sheet
-            foreach (var valueRange in response.ValueRanges)
-            {
-                var sheetname = valueRange.Range.Split('!')[0];
-                _progressMessage = $"Processing {sheetname}...";
-                EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
-
-                string s;
-                (s, fileNamespace) = GenerateDbCreatorFromTemplate(sheetname, valueRange);
-                prexMasterTable += $"{sheetname.ToLower()}_sortedvector,";
-                appends += $"{s}\n";
-                if (_wantedSheetNames.Count <= 0)
-                    _progress += 85f / (response.ValueRanges.Count);
-                else
-                    _progress += 85f / _wantedSheetNames.Count;
-            }
-
-            appends += $"var root = {masterTitle}.Create{masterTitle}(builder, {prexMasterTable.Remove(prexMasterTable.Length - 1)});\nbuilder.Finish(root.Value);";
-            dataCreatorScript = dataCreatorScript.Replace("__namespace__", fileNamespace.Contains("FlatBufferGenerated") ? fileNamespace : $"FlatBufferGenerated.{fileNamespace}").Replace("__data_replace__", appends);
-            dataCreatorScript = Regex.Replace(dataCreatorScript, @"\r\n|\n\r|\r|\n", Environment.NewLine); // Normalize line endings
-            if (!Directory.Exists(scriptsPath))
-            {
-                Directory.CreateDirectory(scriptsPath);
-            }
-
-            EditorHelper.WriteToFile($"{scriptsPath}/GameDatabaseCreate.cs".Replace("/", "\\"), dataCreatorScript);
-            _progress = 100;
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            UnityEngine.Debug.Log($"<color=#25854B>Download completed!</color>");
-        }
-
-        private static (string, string) GenerateDbCreatorFromTemplate(string fileName,
-            ValueRange valueRange)
-        {
-            //Get properties's name, data type and sheet data
-            IDictionary<int, string> propertyNames = new Dictionary<int, string>(); //Dictionary of (column index, property name of that column)
-            IDictionary<int, Dictionary<int, string>> values = new Dictionary<int, Dictionary<int, string>>(); //Dictionary of (row index, dictionary of (column index, value in cell))
-            var rowIndex = 0;
-            foreach (var row in valueRange.Values)
-            {
-                var columnIndex = 0;
-                foreach (string cellValue in row)
-                {
-                    var value = cellValue;
-                    if (rowIndex == 0)
-                    {
-                        //This row is properties's name row
-                        propertyNames.Add(columnIndex, value);
-                    }
-                    else
-                    {
-                        //Data rows
-                        //Because first row is name row so we will minus 1 from rowIndex to make data index start from 0
-                        if (!values.ContainsKey(rowIndex - 1))
-                        {
-                            values.Add(rowIndex - 1, new Dictionary<int, string>());
-                        }
-
-                        values[rowIndex - 1].Add(columnIndex, value);
-                    }
-
-                    columnIndex++;
-                }
-
-                rowIndex++;
-            }
-
-            var typeClass = TypeUtil.GetTypeByName(fileName);
-            var props = typeClass.GetProperties();
-            var methods = typeClass.GetMethods();
-
-            //Create list of Dictionaries (property name, value). Each dictionary represent for a object in a row of sheet.
-            var sortedData = "";
-            var dataAppend = "";
-
-            // avoid malloc many time
-            // ReSharper disable once TooWideLocalVariableScope
-            Type propertyType;
-            string propName;
-            foreach (var rowId in values.Keys)
-            {
-                var dataProperty = $"{fileName}.Create{fileName}(builder, __property_data__),\n";
-                var tempProperty = "";
-
-                foreach (var columnId in propertyNames.Keys)
-                {
-                    if (!values[rowId].ContainsKey(columnId))
-                    {
-                        values[rowId].Add(columnId, "");
-                    }
-
-                    bool isArray = false;
-                    propName = propertyNames[columnId];
-                    propertyType = props.FirstOrDefault(_ => _.Name == propName)?.PropertyType;
-                    if (propertyType == null)
-                    {
-                        propertyType = methods.FirstOrDefault(_ => _.Name == propName)?.ReturnType;
-                        if (propertyType == null) continue;
-
-                        isArray = true;
-                    }
-
-                    if (isArray || EditorHelper.IsEnumerable(propertyType))
-                    {
-                        if (isArray && propertyType == typeof(string))
-                        {
-                            var offsets = values[rowId][columnId].Split('_');
-                            var offsetVector = offsets.Aggregate("", (current,
-                                offset) => current + $"builder.CreateString(\"{offset}\"),");
-                            offsetVector = offsetVector.Remove(offsetVector.Length - 1);
-                            tempProperty += $"{fileName}.Create{propName}Vector(builder, new []{{{offsetVector}}}),";
-                        }
-                        else
-                        {
-                            tempProperty += $"{fileName}.Create{propName}Vector(builder, new []{{{values[rowId][columnId].Replace("_", ",")}}}),";
-                        }
-                    }
-                    else if (propertyType == typeof(string))
-                    {
-                        tempProperty += $"builder.CreateString(\"{values[rowId][columnId]}\"),";
-                    }
-                    else
-                    {
-                        tempProperty += $"{values[rowId][columnId]},";
-                    }
-                }
-
-                sortedData += $"{dataProperty.Replace("__property_data__", tempProperty.Remove(tempProperty.Length - 1))}";
-            }
-
-            dataAppend += $"var {fileName.ToLower()}_sortedvector =  {fileName}.CreateSortedVectorOf{fileName}(builder, new[] {{{sortedData.Remove(sortedData.Length - 2)}}});";
-            return (dataAppend, typeClass.Namespace);
-        }
-
-        #region -- credential ------------------------------------------------
-
-        private static UserCredential GetCredential()
-        {
-            var fullPath = Path.GetFullPath(EditorHelper.PACKAGES_PATH);
-            if (!Directory.Exists(fullPath))
-            {
-                fullPath = Path.Combine(Application.dataPath, "Root");
-            }
-
-            fullPath += "/Spreadsheet/";
-            var fi = new FileInfo(fullPath);
-            var scriptFolder = fi.Directory?.ToString();
-            var unused = scriptFolder?.Replace('\\', '/');
-            UnityEngine.Debug.Log("Save Credential to: " + scriptFolder);
-
-            UserCredential credential = null;
-            var clientSecrets = new ClientSecrets {ClientId = CLIENT_ID, ClientSecret = CLIENT_SECRET};
-            try
-            {
-                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(clientSecrets, Scopes, "user", CancellationToken.None, new FileDataStore(scriptFolder, true)).Result;
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError(e.ToString());
-            }
-
-            return credential;
-        }
-
-        private static bool MyRemoteCertificateValidationCallback(object sender,
-            X509Certificate certificate,
-            X509Chain chain,
-            SslPolicyErrors sslPolicyErrors)
-        {
-            var isOk = true;
-            // If there are errors in the certificate chain, look at each error to determine the cause.
-            // ReSharper disable once InvertIf
-            if (sslPolicyErrors != SslPolicyErrors.None)
-            {
-                // ReSharper disable once ForCanBeConvertedToForeach
-                for (var i = 0; i < chain.ChainStatus.Length; i++)
-                {
-                    // ReSharper disable once InvertIf
-                    if (chain.ChainStatus[i].Status != X509ChainStatusFlags.RevocationStatusUnknown)
-                    {
-                        chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EntireChain;
-                        chain.ChainPolicy.RevocationMode = X509RevocationMode.Online;
-                        chain.ChainPolicy.UrlRetrievalTimeout = new TimeSpan(0, 1, 0);
-                        chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllFlags;
-                        var chainIsValid = chain.Build((X509Certificate2) certificate);
-                        // ReSharper disable once InvertIf
-                        if (!chainIsValid)
-                        {
-                            UnityEngine.Debug.LogError("certificate chain is not valid");
-                            isOk = false;
-                        }
-                    }
-                }
-            }
-
-            return isOk;
-        }
-
-        #endregion
-
-        #endregion
-    }
+    // internal class SpreadsheetWindow : SubWindow
+    // {
+    //     private const string SAVE_SHEET_KEY = "ss_key";
+    //     private const string SAVE_LIST_SHEET_NAME = "ss_sheet_name";
+    //     private string _pathGenerateBinary;
+    //     private string _pathGenerateCode;
+    //     private Type _creatorType;
+    //     private bool _isFetchPath;
+    //     private bool _isFetchPathBinary;
+    //     private bool _isFetchingSheetName;
+    //     private bool _isFetchSaveSheetName;
+    //     private bool _isFetchSpreadSheetKey;
+    //     private const string ROOT_TABLE_NAME = "root_table_name";
+    //
+    //     public SpreadsheetWindow(EditorWindow parent) : base("Spreadsheet", parent)
+    //     {
+    //     }
+    //
+    //     public SpreadsheetWindow(string name,
+    //         EditorWindow parent) : base(name, parent)
+    //     {
+    //     }
+    //
+    //     #region -- properties ------------------------------------------------
+    //
+    //     private const string CLIENT_ID = "121683403714-fpqv8gipdkfivqdsi24olgqrtau94l4v.apps.googleusercontent.com";
+    //     private const string CLIENT_SECRET = "ra-CeiVe7xRR1JT4kgub-VE6";
+    //     private const string APP_NAME = "Fetch";
+    //     private static readonly string[] Scopes = {SheetsService.Scope.SpreadsheetsReadonly};
+    //
+    //     /// <summary>
+    //     /// Key of the spreadsheet. Get from url of the spreadsheet.
+    //     /// </summary>
+    //     private string _spreadSheetKey = "";
+    //
+    //     /// <summary>
+    //     /// List of sheet names which want to download
+    //     /// </summary>
+    //     private readonly List<string> _wantedSheetNames = new List<string>();
+    //
+    //     /// <summary>
+    //     /// Position of the scroll view.
+    //     /// </summary>
+    //     private Vector2 _scrollPosition;
+    //
+    //     /// <summary>
+    //     /// Progress of download and convert action. 100 is "completed".
+    //     /// </summary>
+    //     private float _progress = 100;
+    //
+    //     /// <summary>
+    //     /// The message which be shown on progress bar when action is running.
+    //     /// </summary>
+    //     private string _progressMessage = "";
+    //
+    //     #endregion
+    //
+    //     #region -- function ------------------------------------------------
+    //
+    //     private void Initialized()
+    //     {
+    //         _progress = 100;
+    //         _progressMessage = "";
+    //         ServicePointManager.ServerCertificateValidationCallback = MyRemoteCertificateValidationCallback;
+    //     }
+    //
+    //     public override void OnGUI()
+    //     {
+    //         var style = EditorStyle.Get;
+    //         Initialized();
+    //         EditorUtil.DrawUiLine(Colors.SeaGreen);
+    //         _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, GUI.skin.scrollView);
+    //
+    //         EditorGUILayout.BeginHorizontal(style.areaHorizontal);
+    //         {
+    //             if (!_isFetchSpreadSheetKey)
+    //             {
+    //                 _isFetchSpreadSheetKey = true;
+    //                 if (EditorPrefs.HasKey(SAVE_SHEET_KEY)) _spreadSheetKey = EditorPrefs.GetString(SAVE_SHEET_KEY);
+    //             }
+    //
+    //             EditorGUILayout.LabelField(new GUIContent("API Key", "SpreadSheet Key or SpreadSheet Full Link"), style.widthLabel);
+    //             _spreadSheetKey = EditorGUILayout.TextField(_spreadSheetKey);
+    //             //edit spread sheet key if enter full link
+    //             //https://docs.google.com/spreadsheets/d/..../edit#gid=1284357149
+    //             if (_spreadSheetKey.Contains("docs.google.com"))
+    //             {
+    //                 _spreadSheetKey = _spreadSheetKey.Replace("https://docs.google.com/spreadsheets/d/", "");
+    //                 var raws = _spreadSheetKey.Split('/');
+    //                 _spreadSheetKey = raws[0];
+    //             }
+    //         }
+    //
+    //         EditorGUILayout.EndHorizontal();
+    //         EditorGUILayout.HelpBox("These sheets below will be downloaded. Let the list blank (remove all items) if you want to download all sheets", MessageType.Info);
+    //         var removeId = -1;
+    //         if (!_isFetchSaveSheetName)
+    //         {
+    //             _isFetchSaveSheetName = true;
+    //             if (EditorPrefs.HasKey(SAVE_LIST_SHEET_NAME))
+    //             {
+    //                 _wantedSheetNames.Clear();
+    //                 var sheetCount = EditorPrefs.GetInt(SAVE_LIST_SHEET_NAME);
+    //                 for (int i = 0; i < sheetCount; i++)
+    //                 {
+    //                     _wantedSheetNames.Add(EditorPrefs.GetString(SAVE_LIST_SHEET_NAME + i));
+    //                 }
+    //             }
+    //         }
+    //
+    //         for (var i = 0; i < _wantedSheetNames.Count; i++)
+    //         {
+    //             EditorGUILayout.BeginHorizontal(style.areaHorizontal);
+    //             EditorGUILayout.LabelField($"Sheet {i}", style.widthLabel);
+    //             _wantedSheetNames[i] = EditorGUILayout.TextField(_wantedSheetNames[i]);
+    //             if (GUILayout.Button("", style.searchCancelButton)) removeId = i;
+    //             EditorGUILayout.EndHorizontal();
+    //         }
+    //
+    //         if (removeId >= 0) _wantedSheetNames.RemoveAt(removeId);
+    //         EditorGUILayout.Space(8);
+    //         GUI.color = Colors.Cornsilk;
+    //         GUILayout.Label(_wantedSheetNames.Count <= 0 ? "Status: Download all sheets" : $"Status: Download {_wantedSheetNames.Count} sheets");
+    //         GUI.color = Colors.White;
+    //
+    //         GUI.backgroundColor = Colors.Lavender;
+    //         if (GUILayout.Button("Fetch sheet name", GUILayout.Width(130)))
+    //         {
+    //             FetchSheetName();
+    //         }
+    //
+    //         GUI.backgroundColor = Colors.White;
+    //
+    //         if (!_isFetchPath)
+    //         {
+    //             _isFetchPath = true;
+    //             _pathGenerateCode = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH)) : EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH;
+    //         }
+    //
+    //         GUILayout.Space(8);
+    //         EditorGUILayout.BeginHorizontal();
+    //         EditorGUILayout.LabelField("Generate path", style.widthLabel);
+    //         GUI.enabled = false;
+    //         EditorGUILayout.TextField(_pathGenerateCode);
+    //         GUI.enabled = true;
+    //         EditorHelper.PickFolderPath(ref _pathGenerateCode, nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_CODE_PATH));
+    //         EditorGUILayout.EndHorizontal();
+    //
+    //         GUI.backgroundColor = Colors.LawnGreen;
+    //         if (GUILayout.Button("Fetch"))
+    //         {
+    //             FetchGenerate();
+    //         }
+    //
+    //         void FetchSheetName()
+    //         {
+    //             if (string.IsNullOrEmpty(_spreadSheetKey))
+    //             {
+    //                 EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
+    //                 return;
+    //             }
+    //
+    //             if (_isFetchingSheetName)
+    //             {
+    //                 return;
+    //             }
+    //
+    //             _isFetchingSheetName = true;
+    //             _wantedSheetNames.Clear();
+    //             var service = new SheetsService(new BaseClientService.Initializer()
+    //             {
+    //                 HttpClientInitializer = GetCredential(),
+    //                 ApplicationName = APP_NAME,
+    //             });
+    //             var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
+    //             var sheets = spreadSheetData.Sheets;
+    //
+    //             if (sheets != null && sheets.Count > 0)
+    //             {
+    //                 foreach (var sheet in sheets)
+    //                 {
+    //                     _wantedSheetNames.Add(sheet.Properties.Title);
+    //                 }
+    //
+    //                 _isFetchingSheetName = false;
+    //             }
+    //         }
+    //
+    //         void FetchGenerate()
+    //         {
+    //             if (string.IsNullOrEmpty(_spreadSheetKey))
+    //             {
+    //                 EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
+    //                 return;
+    //             }
+    //
+    //             _progress = 0;
+    //             var pathG = _pathGenerateCode;
+    //             if (!EditorHelper.IsValidPath(pathG))
+    //             {
+    //                 pathG = pathG.Insert(0, Application.dataPath);
+    //             }
+    //
+    //             GenerateDatabase(pathG);
+    //             EditorPrefs.SetString(SAVE_SHEET_KEY, _spreadSheetKey);
+    //             EditorPrefs.SetInt(SAVE_LIST_SHEET_NAME, _wantedSheetNames.Count);
+    //             for (int i = 0; i < _wantedSheetNames.Count; i++)
+    //             {
+    //                 EditorPrefs.SetString(SAVE_LIST_SHEET_NAME + i, _wantedSheetNames[i]);
+    //             }
+    //         }
+    //
+    //         GUI.backgroundColor = Colors.White;
+    //
+    //         if (_creatorType == null) _creatorType = TypeUtil.GetTypeByName("GameDatabaseCreate");
+    //         if (_creatorType != null)
+    //         {
+    //             if (!_isFetchPathBinary)
+    //             {
+    //                 _isFetchPathBinary = true;
+    //                 _pathGenerateBinary = EditorPrefs.HasKey(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH)) ? EditorPrefs.GetString(nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH)) : EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH;
+    //             }
+    //
+    //             GUILayout.Space(10);
+    //             EditorUtil.DrawUiLine(Colors.SeaGreen);
+    //             EditorGUILayout.BeginHorizontal();
+    //             EditorGUILayout.LabelField("Generate path", style.widthLabel);
+    //             GUI.enabled = false;
+    //             EditorGUILayout.TextField(_pathGenerateBinary);
+    //             GUI.enabled = true;
+    //             EditorHelper.PickFolderPath(ref _pathGenerateBinary, nameof(EditorHelper.DEFAULT_SPREADSHEET_GENERATE_BINARY_PATH));
+    //             EditorGUILayout.EndHorizontal();
+    //
+    //             if (EditorPrefs.HasKey(ROOT_TABLE_NAME))
+    //             {
+    //                 GUI.color = Colors.Cornsilk;
+    //                 EditorGUILayout.LabelField($"Name binary file will is '{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary'");
+    //                 GUI.color = Colors.White;
+    //                 GUI.backgroundColor = Colors.LawnGreen;
+    //                 if (GUILayout.Button("Generate binary")) GenerateBinary();
+    //                 if (GUILayout.Button("Generate binary storage")) GenerateBinaryStorage();
+    //                 GUI.backgroundColor = Colors.White;
+    //             }
+    //             else
+    //             {
+    //                 GUI.color = Colors.Orangered;
+    //                 EditorGUILayout.LabelField("Can not detected name root table!", GUILayout.Width(200));
+    //                 GUI.color = Colors.White;
+    //                 if (GUILayout.Button("Get Name Root Table", GUILayout.Width(160))) OnGetNameRootTable();
+    //             }
+    //
+    //             void OnGetNameRootTable()
+    //             {
+    //                 if (string.IsNullOrEmpty(_spreadSheetKey))
+    //                 {
+    //                     EditorUtility.DisplayDialog("Spreadsheet key", "Are you sure spreadsheet key is not empty?", "Ok");
+    //                     return;
+    //                 }
+    //
+    //                 if (_isFetchingSheetName)
+    //                 {
+    //                     return;
+    //                 }
+    //
+    //                 _isFetchingSheetName = true;
+    //                 var service = new SheetsService(new BaseClientService.Initializer()
+    //                 {
+    //                     HttpClientInitializer = GetCredential(),
+    //                     ApplicationName = APP_NAME,
+    //                 });
+    //                 var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
+    //                 EditorPrefs.SetString(ROOT_TABLE_NAME, spreadSheetData.Properties.Title);
+    //                 _isFetchingSheetName = false;
+    //             }
+    //
+    //             void GenerateBinary()
+    //             {
+    //                 var pathG = _pathGenerateBinary;
+    //                 if (!EditorHelper.IsValidPath(pathG))
+    //                 {
+    //                     pathG = pathG.Insert(0, Application.dataPath);
+    //                 }
+    //
+    //                 if (!Directory.Exists(pathG))
+    //                 {
+    //                     Directory.CreateDirectory(pathG);
+    //                 }
+    //
+    //                 _creatorType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
+    //                 GUI.FocusControl(null);
+    //             }
+    //
+    //             void GenerateBinaryStorage()
+    //             {
+    //                 var pathG = _pathGenerateBinary;
+    //                 if (!EditorHelper.IsValidPath(pathG))
+    //                 {
+    //                     pathG = pathG.Insert(0, Application.dataPath);
+    //                 }
+    //
+    //                 if (!Directory.Exists(pathG))
+    //                 {
+    //                     Directory.CreateDirectory(pathG);
+    //                 }
+    //
+    //                 _creatorType.GetMethod("Run2", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] {pathG, $"{EditorPrefs.GetString(ROOT_TABLE_NAME)}_binary"});
+    //                 GUI.FocusControl(null);
+    //             }
+    //         }
+    //
+    //         if ((_progress < 100) && (_progress > 0))
+    //         {
+    //             if (EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100))
+    //             {
+    //                 _progress = 100;
+    //                 EditorUtility.ClearProgressBar();
+    //             }
+    //         }
+    //         else
+    //         {
+    //             EditorUtility.ClearProgressBar();
+    //         }
+    //
+    //         EditorGUILayout.Space(EditorStyle.LAST_SPACE_SCROLL);
+    //         EditorGUILayout.EndScrollView();
+    //     }
+    //
+    //     private void GenerateDatabase(string scriptsPath)
+    //     {
+    //         UnityEngine.Debug.Log("Downloading with sheet key: " + _spreadSheetKey);
+    //
+    //         //Authenticate
+    //         _progressMessage = "Authenticating...";
+    //         var service = new SheetsService(new BaseClientService.Initializer()
+    //         {
+    //             HttpClientInitializer = GetCredential(),
+    //             ApplicationName = APP_NAME,
+    //         });
+    //
+    //         _progress = 5;
+    //         EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
+    //         _progressMessage = "Get list of spreadsheets...";
+    //         EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
+    //
+    //         var spreadSheetData = service.Spreadsheets.Get(_spreadSheetKey).Execute();
+    //         var sheets = spreadSheetData.Sheets;
+    //
+    //         if ((sheets == null) || (sheets.Count <= 0))
+    //         {
+    //             UnityEngine.Debug.LogError("Not found any data!");
+    //             _progress = 100;
+    //             EditorUtility.ClearProgressBar();
+    //             return;
+    //         }
+    //
+    //         _progress = 15;
+    //
+    //         //For each sheet in received data, check the sheet name. If that sheet is the wanted sheet, add it into the ranges.
+    //         var ranges = new List<string>();
+    //         foreach (var sheet in sheets)
+    //         {
+    //             if ((_wantedSheetNames.Count <= 0) || (_wantedSheetNames.Contains(sheet.Properties.Title)))
+    //             {
+    //                 ranges.Add(sheet.Properties.Title);
+    //             }
+    //         }
+    //
+    //         var request = service.Spreadsheets.Values.BatchGet(_spreadSheetKey);
+    //         request.Ranges = ranges;
+    //         var response = request.Execute();
+    //         var dataCreatorScript = EditorHelper.GetTemplateByName("GameDatabaseCreateTemplate");
+    //         var appends = "";
+    //         var fileNamespace = "";
+    //         var prexMasterTable = "";
+    //         var masterTitle = spreadSheetData.Properties.Title;
+    //         EditorPrefs.SetString(ROOT_TABLE_NAME, masterTitle);
+    //         //For each wanted sheet
+    //         foreach (var valueRange in response.ValueRanges)
+    //         {
+    //             var sheetname = valueRange.Range.Split('!')[0];
+    //             _progressMessage = $"Processing {sheetname}...";
+    //             EditorUtility.DisplayCancelableProgressBar("Processing", _progressMessage, _progress / 100);
+    //
+    //             string s;
+    //             (s, fileNamespace) = GenerateDbCreatorFromTemplate(sheetname, valueRange);
+    //             prexMasterTable += $"{sheetname.ToLower()}_sortedvector,";
+    //             appends += $"{s}\n";
+    //             if (_wantedSheetNames.Count <= 0)
+    //                 _progress += 85f / (response.ValueRanges.Count);
+    //             else
+    //                 _progress += 85f / _wantedSheetNames.Count;
+    //         }
+    //
+    //         appends += $"var root = {masterTitle}.Create{masterTitle}(builder, {prexMasterTable.Remove(prexMasterTable.Length - 1)});\nbuilder.Finish(root.Value);";
+    //         dataCreatorScript = dataCreatorScript.Replace("__namespace__", fileNamespace.Contains("FlatBufferGenerated") ? fileNamespace : $"FlatBufferGenerated.{fileNamespace}").Replace("__data_replace__", appends);
+    //         dataCreatorScript = Regex.Replace(dataCreatorScript, @"\r\n|\n\r|\r|\n", Environment.NewLine); // Normalize line endings
+    //         if (!Directory.Exists(scriptsPath))
+    //         {
+    //             Directory.CreateDirectory(scriptsPath);
+    //         }
+    //
+    //         EditorHelper.WriteToFile($"{scriptsPath}/GameDatabaseCreate.cs".Replace("/", "\\"), dataCreatorScript);
+    //         _progress = 100;
+    //         AssetDatabase.SaveAssets();
+    //         AssetDatabase.Refresh();
+    //         UnityEngine.Debug.Log($"<color=#25854B>Download completed!</color>");
+    //     }
+    //
+    //     private static (string, string) GenerateDbCreatorFromTemplate(string fileName,
+    //         ValueRange valueRange)
+    //     {
+    //         //Get properties's name, data type and sheet data
+    //         IDictionary<int, string> propertyNames = new Dictionary<int, string>(); //Dictionary of (column index, property name of that column)
+    //         IDictionary<int, Dictionary<int, string>> values = new Dictionary<int, Dictionary<int, string>>(); //Dictionary of (row index, dictionary of (column index, value in cell))
+    //         var rowIndex = 0;
+    //         foreach (var row in valueRange.Values)
+    //         {
+    //             var columnIndex = 0;
+    //             foreach (string cellValue in row)
+    //             {
+    //                 var value = cellValue;
+    //                 if (rowIndex == 0)
+    //                 {
+    //                     //This row is properties's name row
+    //                     propertyNames.Add(columnIndex, value);
+    //                 }
+    //                 else
+    //                 {
+    //                     //Data rows
+    //                     //Because first row is name row so we will minus 1 from rowIndex to make data index start from 0
+    //                     if (!values.ContainsKey(rowIndex - 1))
+    //                     {
+    //                         values.Add(rowIndex - 1, new Dictionary<int, string>());
+    //                     }
+    //
+    //                     values[rowIndex - 1].Add(columnIndex, value);
+    //                 }
+    //
+    //                 columnIndex++;
+    //             }
+    //
+    //             rowIndex++;
+    //         }
+    //
+    //         var typeClass = TypeUtil.GetTypeByName(fileName);
+    //         var props = typeClass.GetProperties();
+    //         var methods = typeClass.GetMethods();
+    //
+    //         //Create list of Dictionaries (property name, value). Each dictionary represent for a object in a row of sheet.
+    //         var sortedData = "";
+    //         var dataAppend = "";
+    //
+    //         // avoid malloc many time
+    //         // ReSharper disable once TooWideLocalVariableScope
+    //         Type propertyType;
+    //         string propName;
+    //         foreach (var rowId in values.Keys)
+    //         {
+    //             var dataProperty = $"{fileName}.Create{fileName}(builder, __property_data__),\n";
+    //             var tempProperty = "";
+    //
+    //             foreach (var columnId in propertyNames.Keys)
+    //             {
+    //                 if (!values[rowId].ContainsKey(columnId))
+    //                 {
+    //                     values[rowId].Add(columnId, "");
+    //                 }
+    //
+    //                 bool isArray = false;
+    //                 propName = propertyNames[columnId];
+    //                 propertyType = props.FirstOrDefault(_ => _.Name == propName)?.PropertyType;
+    //                 if (propertyType == null)
+    //                 {
+    //                     propertyType = methods.FirstOrDefault(_ => _.Name == propName)?.ReturnType;
+    //                     if (propertyType == null) continue;
+    //
+    //                     isArray = true;
+    //                 }
+    //
+    //                 if (isArray || EditorHelper.IsEnumerable(propertyType))
+    //                 {
+    //                     if (isArray && propertyType == typeof(string))
+    //                     {
+    //                         var offsets = values[rowId][columnId].Split('_');
+    //                         var offsetVector = offsets.Aggregate("", (current,
+    //                             offset) => current + $"builder.CreateString(\"{offset}\"),");
+    //                         offsetVector = offsetVector.Remove(offsetVector.Length - 1);
+    //                         tempProperty += $"{fileName}.Create{propName}Vector(builder, new []{{{offsetVector}}}),";
+    //                     }
+    //                     else
+    //                     {
+    //                         tempProperty += $"{fileName}.Create{propName}Vector(builder, new []{{{values[rowId][columnId].Replace("_", ",")}}}),";
+    //                     }
+    //                 }
+    //                 else if (propertyType == typeof(string))
+    //                 {
+    //                     tempProperty += $"builder.CreateString(\"{values[rowId][columnId]}\"),";
+    //                 }
+    //                 else
+    //                 {
+    //                     tempProperty += $"{values[rowId][columnId]},";
+    //                 }
+    //             }
+    //
+    //             sortedData += $"{dataProperty.Replace("__property_data__", tempProperty.Remove(tempProperty.Length - 1))}";
+    //         }
+    //
+    //         dataAppend += $"var {fileName.ToLower()}_sortedvector =  {fileName}.CreateSortedVectorOf{fileName}(builder, new[] {{{sortedData.Remove(sortedData.Length - 2)}}});";
+    //         return (dataAppend, typeClass.Namespace);
+    //     }
+    //
+    //     #region -- credential ------------------------------------------------
+    //
+    //     private static UserCredential GetCredential()
+    //     {
+    //         var fullPath = Path.GetFullPath(EditorHelper.PACKAGES_PATH);
+    //         if (!Directory.Exists(fullPath))
+    //         {
+    //             fullPath = Path.Combine(Application.dataPath, "Root");
+    //         }
+    //
+    //         fullPath += "/Spreadsheet/";
+    //         var fi = new FileInfo(fullPath);
+    //         var scriptFolder = fi.Directory?.ToString();
+    //         var unused = scriptFolder?.Replace('\\', '/');
+    //         UnityEngine.Debug.Log("Save Credential to: " + scriptFolder);
+    //
+    //         UserCredential credential = null;
+    //         var clientSecrets = new ClientSecrets {ClientId = CLIENT_ID, ClientSecret = CLIENT_SECRET};
+    //         try
+    //         {
+    //             credential = GoogleWebAuthorizationBroker.AuthorizeAsync(clientSecrets, Scopes, "user", CancellationToken.None, new FileDataStore(scriptFolder, true)).Result;
+    //         }
+    //         catch (Exception e)
+    //         {
+    //             UnityEngine.Debug.LogError(e.ToString());
+    //         }
+    //
+    //         return credential;
+    //     }
+    //
+    //     private static bool MyRemoteCertificateValidationCallback(object sender,
+    //         X509Certificate certificate,
+    //         X509Chain chain,
+    //         SslPolicyErrors sslPolicyErrors)
+    //     {
+    //         var isOk = true;
+    //         // If there are errors in the certificate chain, look at each error to determine the cause.
+    //         // ReSharper disable once InvertIf
+    //         if (sslPolicyErrors != SslPolicyErrors.None)
+    //         {
+    //             // ReSharper disable once ForCanBeConvertedToForeach
+    //             for (var i = 0; i < chain.ChainStatus.Length; i++)
+    //             {
+    //                 // ReSharper disable once InvertIf
+    //                 if (chain.ChainStatus[i].Status != X509ChainStatusFlags.RevocationStatusUnknown)
+    //                 {
+    //                     chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EntireChain;
+    //                     chain.ChainPolicy.RevocationMode = X509RevocationMode.Online;
+    //                     chain.ChainPolicy.UrlRetrievalTimeout = new TimeSpan(0, 1, 0);
+    //                     chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllFlags;
+    //                     var chainIsValid = chain.Build((X509Certificate2) certificate);
+    //                     // ReSharper disable once InvertIf
+    //                     if (!chainIsValid)
+    //                     {
+    //                         UnityEngine.Debug.LogError("certificate chain is not valid");
+    //                         isOk = false;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //
+    //         return isOk;
+    //     }
+    //
+    //     #endregion
+    //
+    //     #endregion
+    // }
 
     internal class SchemaWindow : SubWindow
     {
