@@ -7,30 +7,24 @@ namespace FlatBuffers
     using UnityEngine;
     using System;
     using System.Collections.Generic;
-    using System.Net;
-    using System.Net.Security;
-    using System.Security.Cryptography.X509Certificates;
     using System.Text;
     using System.Diagnostics;
-    using System.Threading;
-    using System.Text.RegularExpressions;
-    using System.Reflection;
     using Worldreaver.EditorUtility;
     using Worldreaver.Utility;
 
     internal class Colors
     {
-        internal static readonly UnityEngine.Color LightBlue = new Color32(173, 216, 230, 255);
-        internal static readonly UnityEngine.Color White = new Color32(255, 255, 255, 255);
-        internal static readonly UnityEngine.Color LawnGreen = new Color32(124, 252, 0, 255);
-        internal static readonly UnityEngine.Color SeaGreen = new Color32(46, 139, 87, 255);
-        internal static readonly UnityEngine.Color Cornsilk = new Color32(255, 248, 220, 255);
-        internal static readonly UnityEngine.Color Lavender = new Color32(230, 230, 250, 255);
-        internal static readonly UnityEngine.Color Orangered = new Color32(255, 69, 0, 255);
-        internal static readonly UnityEngine.Color LightSteelBlue = new Color32(176, 196, 222, 255);
-        internal static readonly UnityEngine.Color YellowGreen = new Color32(154, 205, 50, 255);
-        internal static readonly UnityEngine.Color PaleGreen = new Color32(152, 251, 152, 255);
-        internal static readonly UnityEngine.Color Red = new Color32(255, 0, 0, 255);
+        internal static readonly Color LightBlue = new Color32(173, 216, 230, 255);
+        internal static readonly Color White = new Color32(255, 255, 255, 255);
+        internal static readonly Color LawnGreen = new Color32(124, 252, 0, 255);
+        internal static readonly Color SeaGreen = new Color32(46, 139, 87, 255);
+        internal static readonly Color Cornsilk = new Color32(255, 248, 220, 255);
+        internal static readonly Color Lavender = new Color32(230, 230, 250, 255);
+        internal static readonly Color Orangered = new Color32(255, 69, 0, 255);
+        internal static readonly Color LightSteelBlue = new Color32(176, 196, 222, 255);
+        internal static readonly Color YellowGreen = new Color32(154, 205, 50, 255);
+        internal static readonly Color PaleGreen = new Color32(152, 251, 152, 255);
+        internal static readonly Color Red = new Color32(255, 0, 0, 255);
     }
 
     internal class FlatWindowEditor : EditorWindow
@@ -45,7 +39,7 @@ namespace FlatBuffers
         /// alt = &
         /// _ = no key modifiers
         /// </summary>
-        [MenuItem("Window/Flat Data &#F", false, 100)]
+        //[MenuItem("Window/Flat Data &#F", false, 100)]
         public static void ShowWindow()
         {
             var window = GetWindow(typeof(FlatWindowEditor));
@@ -53,6 +47,41 @@ namespace FlatBuffers
             window.minSize = new Vector2(800, 450);
         }
 
+        [MenuItem("Window/Persistent/Open", priority = -9998)]
+        private static void OpenPersistent()
+        {
+            OsFileBrowser.Open(Application.persistentDataPath);
+        }
+        
+        [MenuItem("Window/Persistent/Delete All", priority = -9996)]
+        private static void DeleteAllPersistent()
+        {
+            if (EditorUtility.DisplayDialog("Clear Persistent Data Path", "Are you sure you wish to clear the persistent data path?\nThis action cannot be reversed.", "Clear", "Cancel"))
+            {
+                var di = new DirectoryInfo(Application.persistentDataPath);
+
+                foreach (var file in di.GetFiles())
+                {
+                    file.Delete();
+                }
+
+                foreach (var dir in di.GetDirectories())
+                {
+                    dir.Delete(true);
+                }
+            }
+        }
+        
+        [MenuItem("Window/Persistent/Delete All PlayerPrefs", priority = -9994)]
+        private static void DeleteAllPlayerPrefs()
+        {
+            if (EditorUtility.DisplayDialog("Delete PlayerPrefs", "Are you sure you wish to clear PlayerPrefs?\nThis action cannot be reversed.", "Clear", "Cancel"))
+            {
+                PlayerPrefs.DeleteAll();
+            }
+        }
+        
+        
         private void OnGUI()
         {
             Initialize();
@@ -1076,7 +1105,8 @@ namespace FlatBuffers
             EditorGUILayout.EndScrollView();
         }
     }
-
+    
+    
     internal static class OsFileBrowser
     {
         internal static bool MacEditor => Application.platform == RuntimePlatform.OSXEditor;

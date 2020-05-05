@@ -9,13 +9,13 @@ namespace FlatBuffers
     public class FbsCreator : ScriptableWizard
     {
         [MenuItem("Assets/Create/FlatBuffers Schema")]
-        [MenuItem("Assets/FlatData/Create Flatbuffers Schema Here")]
+        [MenuItem("Assets/FlatData/Create Flatbuffers Schema Here", priority = 100)]
         private static void CreateFbs() { CreateFbsFile(); }
 
         [MenuItem("Assets/FlatData/Create Flatbuffers Schema Here", true)]
         private static bool CreateFbsValidation() { return GetSelectedDirectory() != null; }
 
-        [MenuItem("Assets/FlatData/Set As Output Folder")]
+        [MenuItem("Assets/FlatData/Set As Output Folder", priority = 99)]
         private static void SetAsOutputFolder()
         {
             var dir = GetSelectedDirectory();
